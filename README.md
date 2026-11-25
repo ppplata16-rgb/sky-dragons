@@ -172,6 +172,7 @@ Migraciones incluidas:
 - 20261124_physical_metrics.sql
 - 20261124_training_category.sql
 - 20261124_user_signup_approval.sql
+- 20261125_team_gallery.sql
 
 Ejemplo en PowerShell para aplicar la migración de métricas físicas a la base local, una vez y después de confirmar que aún falta:
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   LayoutDashboard, Users, CalendarDays, Trophy, WalletCards, Package, Activity,
   Settings, LogOut, Search, Bell, ChevronDown, Plus, ArrowUpRight,
@@ -6,7 +6,7 @@ import {
   Anchor, LifeBuoy, DollarSign, ReceiptText, CreditCard, ArrowDownRight,
   UserPlus, ShieldCheck, Trash2, Cake,
   Wrench, CalendarClock,
-  Pencil, RefreshCw, Download, Share2, LockKeyhole,
+  Pencil, RefreshCw, Download, Share2, LockKeyhole, Image as ImageIcon, X,
 } from 'lucide-react'
 import skyDragonsLogo from './assets/sky-dragons-logo.png'
 import { authApi, apiRequest } from './api/client'
@@ -27,6 +27,7 @@ const nav = [
   { label: 'Flota y reservas', icon: Anchor },
   { label: 'Alineaciones', icon: Target },
   { label: 'Calendario', icon: CalendarDays },
+  { label: 'Galería', icon: ImageIcon },
   { label: 'Reportes', icon: ArrowUpRight },
 ]
 
@@ -1065,6 +1066,118 @@ function MedalGalleryPhoto({ race, onUpload, onDelete, uploading }) {
     {photoUrl ? <div className="gallery-medal-photo"><img src={photoUrl} alt={`Foto de la medalla de ${race.eventName || 'la competencia'}`} /></div> : <div className="gallery-medal-art"><span className="medal-ribbon" /><span className="medal-ribbon second" /><div><Medal size={28} /><b>{race.position}</b></div></div>}
     <div className="gallery-photo-controls"><label className={uploading ? 'gallery-photo-upload disabled' : 'gallery-photo-upload'}>{uploading ? 'Subiendo…' : race.medalPhotoType ? 'Cambiar foto' : 'Subir foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(race.id, file); event.target.value = '' }} /></label>{race.medalPhotoType && <button type="button" className="gallery-photo-delete" disabled={uploading} onClick={() => onDelete(race)}>Quitar</button>}</div>
   </>
+}
+
+function GalleryPhotoCard({ photo, canManage, onOpen, onDelete }) {
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [visible, setVisible] = useState(false)
+  const cardRef = useRef(null)
+  useEffect(() => {
+    const node = cardRef.current
+    if (!node) return undefined
+    if (!('IntersectionObserver' in window)) { setVisible(true); return undefined }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setVisible(true); observer.disconnect() }
+    }, { rootMargin: '300px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+  useEffect(() => {
+    let active = true
+    let objectUrl = ''
+    if (!visible) return undefined
+    apiRequest(`/api/gallery/${photo.id}/image`, { responseType: 'blob' }).then((blob) => {
+      if (!active) return
+      objectUrl = URL.createObjectURL(blob)
+      setPhotoUrl(objectUrl)
+    }).catch(() => setPhotoUrl(''))
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [photo.id, visible])
+
+  return <article className="team-gallery-card" ref={cardRef}>
+    <button className="team-gallery-open" type="button" onClick={() => photoUrl && onOpen(photo, photoUrl)} disabled={!photoUrl} aria-label={`Ver foto: ${photo.title}`}>
+      <span className="team-gallery-image">{photoUrl ? <img src={photoUrl} alt={photo.title} loading="lazy" /> : <ImageIcon size={28} />}</span>
+      <span className="team-gallery-card-copy"><strong>{photo.title}</strong>{photo.photoDate && <time>{new Date(`${photo.photoDate}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</time>}{photo.category && <small>{photo.category}</small>}{photo.description && <span>{photo.description}</span>}</span>
+    </button>
+    {canManage && <button className="team-gallery-delete" type="button" onClick={() => onDelete(photo)} aria-label={`Eliminar foto: ${photo.title}`} title="Eliminar foto"><Trash2 size={15} /></button>}
+  </article>
+}
+
+function GalleryView({ currentUser }) {
+  const [photos, setPhotos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({ title: '', description: '', category: '', photoDate: '' })
+  const [selectedPhoto, setSelectedPhoto] = useState(null)
+  const canManage = ['admin', 'capitan'].includes(currentUser?.role)
+
+  const loadPhotos = async () => {
+    setLoading(true)
+    try {
+      const result = await apiRequest('/api/gallery')
+      setPhotos(Array.isArray(result.data) ? result.data : [])
+      setError('')
+    } catch (requestError) { setError(requestError.message) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { loadPhotos() }, [])
+  useEffect(() => {
+    if (!selectedPhoto) return undefined
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setSelectedPhoto(null) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [selectedPhoto])
+
+  const uploadPhoto = async (event) => {
+    event.preventDefault()
+    const input = event.currentTarget.elements.photo
+    const file = input.files?.[0]
+    if (!file) { setError('Selecciona una imagen para subir.'); return }
+    if (!form.title.trim()) { setError('Escribe un título para la foto.'); return }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setError('La imagen debe estar en formato JPG, PNG o WebP.'); return }
+    if (file.size > 5 * 1024 * 1024) { setError('La imagen debe pesar menos de 5 MB.'); return }
+    const params = new URLSearchParams({ title: form.title.trim(), description: form.description, category: form.category, photoDate: form.photoDate })
+    setUploading(true); setError('')
+    try {
+      await apiRequest(`/api/gallery?${params}`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file })
+      setForm({ title: '', description: '', category: '', photoDate: '' })
+      input.value = ''
+      await loadPhotos()
+    } catch (requestError) { setError(requestError.message) }
+    finally { setUploading(false) }
+  }
+
+  const deletePhoto = async (photo) => {
+    if (!window.confirm(`¿Eliminar la foto «${photo.title}» de la galería?`)) return
+    try {
+      await apiRequest(`/api/gallery/${photo.id}`, { method: 'DELETE' })
+      setPhotos((current) => current.filter((item) => item.id !== photo.id))
+      if (selectedPhoto?.photo.id === photo.id) setSelectedPhoto(null)
+    } catch (requestError) { setError(requestError.message) }
+  }
+
+  return <div className="team-gallery-view">
+    {error && <p className="login-error" role="alert">{error}</p>}
+    {canManage && <article className="panel team-gallery-upload-panel">
+      <div className="team-gallery-intro"><span className="gallery-eyebrow">MOMENTOS DEL EQUIPO</span><h2>Galería de imágenes</h2><p>Comparte fotos de entrenamientos, competencias y actividades del equipo.</p></div>
+      <form className="team-gallery-form" onSubmit={uploadPhoto}>
+        <label><span>Título</span><input name="title" maxLength="160" required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej. Regata de temporada" /></label>
+        <label><span>Fecha</span><input name="photoDate" type="date" value={form.photoDate} onChange={(event) => setForm({ ...form, photoDate: event.target.value })} /></label>
+        <label><span>Actividad o categoría</span><input name="category" maxLength="80" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Entrenamiento, competencia…" /></label>
+        <label className="team-gallery-description"><span>Descripción</span><input name="description" maxLength="2000" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Añade un detalle si quieres" /></label>
+        <label className={`team-gallery-file ${uploading ? 'disabled' : ''}`}><ImageIcon size={16} />{uploading ? 'Subiendo…' : 'Elegir imagen'}<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} /></label>
+        <button className="primary-button" type="submit" disabled={uploading}>{uploading ? 'SUBIENDO…' : 'AGREGAR FOTO'}</button>
+        <small className="team-gallery-limit">JPG, PNG o WebP · máximo 5 MB</small>
+      </form>
+    </article>}
+    <article className="panel team-gallery-panel">
+      <div className="panel-header"><div><p className="roster-kicker">ÁLBUM DEL CLUB</p><h2>Fotos del equipo</h2></div><span className="inventory-count">{photos.length} {photos.length === 1 ? 'foto' : 'fotos'}</span></div>
+      {loading ? <p className="team-gallery-empty">Cargando galería…</p> : photos.length ? <div className="team-gallery-grid">{photos.map((photo) => <GalleryPhotoCard key={photo.id} photo={photo} canManage={canManage} onOpen={(item, url) => setSelectedPhoto({ photo: item, url })} onDelete={deletePhoto} />)}</div> : <div className="team-gallery-empty"><ImageIcon size={32} /><strong>Aún no hay fotos</strong><span>{canManage ? 'Sube la primera imagen para crear el álbum del equipo.' : 'Cuando se agreguen imágenes, aparecerán aquí.'}</span></div>}
+    </article>
+    {selectedPhoto && <div className="team-gallery-lightbox" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedPhoto(null) }}><section className="team-gallery-lightbox-content" role="dialog" aria-modal="true" aria-label={selectedPhoto.photo.title}><button className="team-gallery-lightbox-close" type="button" onClick={() => setSelectedPhoto(null)} aria-label="Cerrar foto"><X size={20} /></button><img src={selectedPhoto.url} alt={selectedPhoto.photo.title} /><div><h2>{selectedPhoto.photo.title}</h2>{selectedPhoto.photo.description && <p>{selectedPhoto.photo.description}</p>}{selectedPhoto.photo.photoDate && <time>{selectedPhoto.photo.photoDate}</time>}</div></section></div>}
+  </div>
 }
 
 function raceCrewNames(race) {
@@ -2248,8 +2361,8 @@ function App() {
 
         <section className="page">
           <div className="page-heading">
-            <div><p className="eyebrow">TEMPORADA 2026 · SIN DATOS</p><h1>{active === 'Integrantes' ? 'Categorías y roster' : active === 'Entrenamientos' ? 'Programación de entrenamientos' : active === 'Concept2' ? 'Datos de ergómetro por sesión' : active === 'Métricas' ? 'Seguimiento físico por remero' : active === 'Competencias' ? 'Competiciones y medallero' : active === 'Inventario' ? 'Inventario del equipo' : active === 'Flota y reservas' ? 'Bitácora de flota y reservas' : active === 'Finanzas' ? 'Administración financiera' : active === 'Alineaciones' ? 'Alineación del bote' : active === 'Calendario' ? 'Calendario deportivo' : active === 'Reportes' ? 'Reportes de temporada' : active === 'Configuración' ? 'Configuración y usuarios' : 'Centro deportivo'}</h1></div>
-            <div className="heading-actions">{active === 'Centro deportivo' && <button className="demo-toggle" onClick={() => setDemoEnabled((current) => !current)}>{demoEnabled ? 'Quitar datos demo' : 'Cargar demo'}</button>}{active !== 'Métricas' && <button className="primary-button" onClick={() => setActive('Entrenamientos')}><Plus size={18} /> NUEVA ACTIVIDAD</button>}</div>
+            <div><p className="eyebrow">TEMPORADA 2026 · SIN DATOS</p><h1>{active === 'Integrantes' ? 'Categorías y roster' : active === 'Entrenamientos' ? 'Programación de entrenamientos' : active === 'Concept2' ? 'Datos de ergómetro por sesión' : active === 'Métricas' ? 'Seguimiento físico por remero' : active === 'Competencias' ? 'Competiciones y medallero' : active === 'Inventario' ? 'Inventario del equipo' : active === 'Flota y reservas' ? 'Bitácora de flota y reservas' : active === 'Finanzas' ? 'Administración financiera' : active === 'Alineaciones' ? 'Alineación del bote' : active === 'Calendario' ? 'Calendario deportivo' : active === 'Galería' ? 'Galería de imágenes del equipo' : active === 'Reportes' ? 'Reportes de temporada' : active === 'Configuración' ? 'Configuración y usuarios' : 'Centro deportivo'}</h1></div>
+            <div className="heading-actions">{active === 'Centro deportivo' && <button className="demo-toggle" onClick={() => setDemoEnabled((current) => !current)}>{demoEnabled ? 'Quitar datos demo' : 'Cargar demo'}</button>}{!['Métricas', 'Galería'].includes(active) && <button className="primary-button" onClick={() => setActive('Entrenamientos')}><Plus size={18} /> NUEVA ACTIVIDAD</button>}</div>
           </div>
 
           {user ? (
@@ -2273,6 +2386,8 @@ function App() {
               <LineupsView />
             ) : active === 'Calendario' ? (
               <CalendarView />
+            ) : active === 'Galería' ? (
+              <GalleryView currentUser={user} />
             ) : active === 'Reportes' ? (
               <ReportsView />
             ) : active === 'Configuración' ? (

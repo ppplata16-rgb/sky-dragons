@@ -136,6 +136,16 @@ const Race = sequelize.define('Race', {
   medalPhotoType: { type: T.STRING(40) },
 });
 
+const GalleryPhoto = sequelize.define('GalleryPhoto', {
+  title: { type: T.STRING(160), allowNull: false },
+  description: { type: T.TEXT },
+  category: { type: T.STRING(80) },
+  photoDate: { type: T.DATEONLY },
+  image: { type: T.BLOB('medium'), allowNull: false },
+  imageType: { type: T.STRING(40), allowNull: false },
+  createdBy: { type: T.INTEGER },
+}, { indexes: [{ fields: ['photoDate'] }] });
+
 const Lineup = sequelize.define('Lineup', {
   raceId: { type: T.INTEGER, allowNull: true },
   name: { type: T.STRING(120) },
@@ -273,7 +283,7 @@ rel(FleetAsset, FleetMaintenance, 'assetId', 'maintenanceRecords');
 
 module.exports = {
   sequelize, User, Member, Training, Attendance, Competition, Race, Lineup,
-  LineupSeat, ErgScore, PhysicalMetric, Concept2Connection, FeePlan, Payment, Expense, Sponsor, SponsorContribution,
+  GalleryPhoto, LineupSeat, ErgScore, PhysicalMetric, Concept2Connection, FeePlan, Payment, Expense, Sponsor, SponsorContribution,
   InventoryItem, InventoryAssignment, FleetAsset, FleetBooking, FleetMaintenance,
   PasswordResetToken,
 };

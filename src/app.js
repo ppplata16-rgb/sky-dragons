@@ -239,6 +239,53 @@ api.delete('/races/:id/medal-photo', allow('capitan'), async (req, res, next) =>
     res.status(204).end();
   } catch (error) { next(error); }
 });
+api.get('/gallery', async (req, res, next) => {
+  try {
+    const photos = await M.GalleryPhoto.findAll({
+      attributes: { exclude: ['image'] },
+      order: [['photoDate', 'DESC'], ['id', 'DESC']],
+      limit: 500,
+    });
+    res.json({ data: photos });
+  } catch (error) { next(error); }
+});
+api.post('/gallery', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), async (req, res, next) => {
+  try {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecciona una foto JPG, PNG o WebP.' });
+    const title = String(req.query.title || '').trim().slice(0, 160);
+    if (!title) return res.status(400).json({ error: 'El título de la foto es obligatorio.' });
+    const photo = await M.GalleryPhoto.create({
+      title,
+      description: String(req.query.description || '').trim().slice(0, 2000) || null,
+      category: String(req.query.category || '').trim().slice(0, 80) || null,
+      photoDate: req.query.photoDate || null,
+      image: req.body,
+      imageType: req.headers['content-type'],
+      createdBy: req.user.id,
+    });
+    const safePhoto = photo.get({ plain: true });
+    delete safePhoto.image;
+    res.status(201).json(safePhoto);
+  } catch (error) { next(error); }
+});
+api.get('/gallery/:id/image', async (req, res, next) => {
+  try {
+    const photo = await M.GalleryPhoto.findByPk(req.params.id, { attributes: ['id', 'image', 'imageType'] });
+    if (!photo?.image) return res.status(404).json({ error: 'La foto no está disponible.' });
+    res.set('Content-Type', photo.imageType || 'image/jpeg');
+    res.set('Cache-Control', 'private, max-age=3600');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.send(photo.image);
+  } catch (error) { next(error); }
+});
+api.delete('/gallery/:id', allow('capitan'), async (req, res, next) => {
+  try {
+    const photo = await M.GalleryPhoto.findByPk(req.params.id);
+    if (!photo) return res.status(404).json({ error: 'La foto no existe.' });
+    await photo.destroy();
+    res.status(204).end();
+  } catch (error) { next(error); }
+});
 api.use('/lineups', crud(M.Lineup, { write: equipo, include: [{ model: M.LineupSeat, as: 'seats' }] }));
 api.use('/lineup-seats', crud(M.LineupSeat, { write: equipo, include: [M.Member] }));
 api.use('/fee-plans', crud(M.FeePlan, { read: finanzas, write: finanzas }));
