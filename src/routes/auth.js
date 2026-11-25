@@ -168,6 +168,23 @@ router.get('/users', authenticate, allow(), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.put('/users/:id/role', authenticate, allow(), async (req, res, next) => {
+  try {
+    const role = req.body?.role;
+    if (!['admin', 'capitan', 'tesorero', 'lector'].includes(role)) {
+      return res.status(400).json({ error: 'Elige un rol válido para el usuario.' });
+    }
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    if (user.role === 'admin' && role !== 'admin') {
+      const adminCount = await User.count({ where: { role: 'admin' } });
+      if (adminCount <= 1) return res.status(400).json({ error: 'No se puede cambiar el rol del último administrador.' });
+    }
+    await user.update({ role });
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, isApproved: user.isApproved });
+  } catch (error) { next(error); }
+});
+
 router.put('/users/:id/approval', authenticate, allow(), async (req, res, next) => {
   try {
     if (typeof req.body?.isApproved !== 'boolean') return res.status(400).json({ error: 'Indica si se aprueba o rechaza la cuenta.' });

@@ -2452,6 +2452,7 @@ function App() {
 function SettingsView({ currentUser }) {
   const [users, setUsers] = useState([])
   const [showForm, setShowForm] = useState(false)
+  const [savingRoleUserId, setSavingRoleUserId] = useState(null)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'lector', memberId: '' })
   const [message, setMessage] = useState('')
 
@@ -2496,6 +2497,17 @@ function SettingsView({ currentUser }) {
       setUsers((current) => current.map((userItem) => userItem.id === item.id ? updated : userItem))
       setMessage(isApproved ? 'Cuenta aprobada correctamente' : 'Acceso suspendido correctamente')
     } catch (error) { setMessage(error.message) }
+  }
+
+  const changeUserRole = async (item, role) => {
+    if (role === item.role) return
+    setSavingRoleUserId(item.id)
+    try {
+      const updated = await apiRequest(`/api/auth/users/${item.id}/role`, { method: 'PUT', body: JSON.stringify({ role }) })
+      setUsers((current) => current.map((userItem) => userItem.id === item.id ? updated : userItem))
+      setMessage(`Rol de ${item.name} actualizado correctamente`)
+    } catch (error) { setMessage(error.message) }
+    finally { setSavingRoleUserId(null) }
   }
 
   const inviteUsers = async () => {
@@ -2545,7 +2557,7 @@ function SettingsView({ currentUser }) {
         <div className="users-table-head"><span>Usuario</span><span>Correo</span><span>Rol</span><span>Estado</span><span>Acciones</span></div>
         <div className="users-table-row"><div className="member-name"><b style={{ background: '#ff6b3d' }}>{(currentUser.name || 'AD').split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{currentUser.name || 'Administrador'}</strong></div><span>{currentUser.email || 'Sesión actual'}</span><span className="role-badge admin">Administrador</span><span className="roster-status"><i /> Activo</span><span>Sesión actual</span></div>
         {users.map((item) => (
-          <div className="users-table-row" key={item.id}><div className="member-name"><b style={{ background: '#75a7ff' }}>{item.name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{item.name}</strong></div><span>{item.email}</span><span className={`role-badge ${item.role}`}>{item.role}</span><span className={item.isApproved ? 'roster-status' : 'account-pending'}><i /> {item.isApproved ? 'Activo' : 'Pendiente'}</span><div className="user-actions">{item.role !== 'admin' && <button className={item.isApproved ? 'user-approval-button suspend' : 'user-approval-button'} onClick={() => toggleUserApproval(item)}>{item.isApproved ? 'Suspender' : 'Aprobar'}</button>}<button className="icon-danger-button" aria-label={`Borrar usuario ${item.name}`} title="Borrar usuario" onClick={() => deleteUser(item)}><Trash2 size={15} /></button></div></div>
+          <div className="users-table-row" key={item.id}><div className="member-name"><b style={{ background: '#75a7ff' }}>{item.name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{item.name}</strong></div><span>{item.email}</span><label className="user-role-control"><span className="sr-only">Rol de {item.name}</span><select aria-label={`Cambiar rol de ${item.name}`} value={item.role} disabled={savingRoleUserId === item.id} onChange={(event) => changeUserRole(item, event.target.value)}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select>{savingRoleUserId === item.id && <small>Guardando…</small>}</label><span className={item.isApproved ? 'roster-status' : 'account-pending'}><i /> {item.isApproved ? 'Activo' : 'Pendiente'}</span><div className="user-actions">{item.role !== 'admin' && <button className={item.isApproved ? 'user-approval-button suspend' : 'user-approval-button'} onClick={() => toggleUserApproval(item)}>{item.isApproved ? 'Suspender' : 'Aprobar'}</button>}<button className="icon-danger-button" aria-label={`Borrar usuario ${item.name}`} title="Borrar usuario" onClick={() => deleteUser(item)}><Trash2 size={15} /></button></div></div>
         ))}
       </article>
 
