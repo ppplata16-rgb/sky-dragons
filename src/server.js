@@ -7,6 +7,10 @@ function validateEnvironment() {
   const required = ['JWT_SECRET', 'DB_NAME', 'DB_USER', 'DB_PASS'];
   const missing = required.filter((key) => !process.env[key]);
   if (missing.length) throw new Error(`Faltan variables de entorno: ${missing.join(', ')}`);
+  const jwtSecret = process.env.JWT_SECRET;
+  if (Buffer.byteLength(jwtSecret, 'utf8') < 32 || /^(cambia_esto|replace_with|reemplaza_con|generar_con)/i.test(jwtSecret)) {
+    throw new Error('JWT_SECRET debe ser un secreto aleatorio propio de al menos 32 bytes. Genera uno con: openssl rand -hex 32');
+  }
 }
 
 async function start() {

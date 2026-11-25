@@ -108,7 +108,7 @@ La configuración compose.production.yaml usa Caddy para servir la web y la API 
 Requisitos: un servidor Linux con Docker Engine y Docker Compose, un dominio apuntado al servidor y los puertos 80 y 443 habilitados.
 
 1. Copia .env.production.example como .env.production.
-2. Configura DOMAIN, DB_NAME, DB_USER, DB_PASS, MYSQL_ROOT_PASSWORD, JWT_SECRET, ADMIN_EMAIL y ADMIN_PASSWORD. Usa contraseñas y claves únicas; no publiques el archivo.
+2. Configura DOMAIN, DB_NAME, DB_USER, DB_PASS, MYSQL_ROOT_PASSWORD, JWT_SECRET, ADMIN_EMAIL y ADMIN_PASSWORD. Genera JWT_SECRET con `openssl rand -hex 32`, usa contraseñas y claves únicas, y no publiques el archivo.
 3. Para una base nueva y vacía, inicializa el esquema y levanta los servicios:
 
     docker compose --env-file .env.production -f compose.production.yaml run --rm api npm run db:init-schema
@@ -139,6 +139,8 @@ En la instalación local con Tailscale, FRONTEND_URL debe ser la URL HTTPS de Fu
 - Los registros públicos quedan pendientes hasta que un administrador los aprueba.
 - Para enviar enlaces de recuperación, configura RESEND_API_KEY y RESEND_FROM_EMAIL. El remitente debe estar verificado en Resend; FRONTEND_URL debe ser la URL pública de la app.
 - Los enlaces de restablecimiento son de un solo uso y vencen a los 30 minutos.
+
+El inicio de sesión limita intentos fallidos por cuenta y por origen de red; los accesos correctos no consumen ese límite. Las contraseñas nuevas requieren al menos 12 caracteres y los tokens vencen tras 8 horas. `JWT_SECRET` debe ser propio y aleatorio, de al menos 32 bytes; genéralo con `openssl rand -hex 32`.
 
 ## Datos y migraciones
 

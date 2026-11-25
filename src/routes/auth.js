@@ -17,7 +17,7 @@ const loginSchema = z.object({
 const registerSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8).max(72),
+  password: z.string().min(12).max(72),
   role: z.enum(['admin', 'capitan', 'tesorero', 'lector']).default('lector'),
   memberId: z.coerce.number().int().positive().nullable().optional(),
 });
@@ -129,7 +129,7 @@ router.post('/login', async (req, res, next) => {
     }
     if (!user.isApproved) return res.status(403).json({ error: 'Tu registro fue recibido y está pendiente de aprobación por el administrador.' });
     const payload = { id: user.id, name: user.name, role: user.role, memberId: user.memberId };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
     res.json({ token, user: payload });
   } catch (e) { next(e); }
 });

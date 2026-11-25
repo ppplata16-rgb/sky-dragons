@@ -2568,7 +2568,7 @@ function SettingsView({ currentUser }) {
           <form className="athlete-form" onSubmit={createUser}>
             <label><span>Nombre</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span>Correo electrónico</span><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label><span>Contraseña temporal</span><input type="password" minLength="8" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
+            <label><span>Contraseña temporal (mínimo 12 caracteres)</span><input type="password" minLength="12" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
             <label><span>Rol</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select></label>
             <label className="full-form-field"><span>ID de integrante (opcional)</span><input type="number" min="1" value={form.memberId} onChange={(event) => setForm({ ...form, memberId: event.target.value })} /></label>
             <div className="form-actions"><button type="button" className="outline-button" onClick={() => setShowForm(false)}>Cancelar</button><button type="submit" className="primary-button">Crear usuario</button></div>

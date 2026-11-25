@@ -12,6 +12,8 @@ const M = require('./models');
 
 const app = express();
 app.disable('x-powered-by');
+// Requests arrive through one trusted reverse proxy (Caddy locally or in production).
+app.set('trust proxy', 1);
 app.use(helmet());
 
 // Serverless deployments do not run src/server.js on startup. Create the
@@ -64,6 +66,7 @@ app.use(express.json({ limit: '1mb' }));
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 10,
+  skipSuccessfulRequests: true,
   // Requests through a single public tunnel can share one proxy IP. Keep the
   // brute-force limit per account so one teammate cannot lock out everyone.
   keyGenerator(req) {
@@ -73,6 +76,15 @@ const loginLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de inicio de sesión. Inténtalo más tarde.' },
+});
+
+const loginIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Se alcanzó el límite de intentos desde esta conexión. Inténtalo en 15 minutos.' },
 });
 
 const passwordResetRequestLimiter = rateLimit({
@@ -127,6 +139,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api', (req, res, next) => {
   ensureInitialAdmin().then(() => next()).catch(next);
 });
+app.use('/api/auth/login', loginIpLimiter);
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/auth/forgot-password', passwordResetIpLimiter);
 app.use('/api/auth/forgot-password', passwordResetRequestLimiter);
