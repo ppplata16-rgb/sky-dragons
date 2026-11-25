@@ -1137,7 +1137,7 @@ function GalleryView({ currentUser }) {
     if (!file) { setError('Selecciona una imagen para subir.'); return }
     if (!form.title.trim()) { setError('Escribe un título para la foto.'); return }
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setError('La imagen debe estar en formato JPG, PNG o WebP.'); return }
-    if (file.size > 5 * 1024 * 1024) { setError('La imagen debe pesar menos de 5 MB.'); return }
+    if (file.size > 15 * 1024 * 1024) { setError('La imagen debe pesar menos de 15 MB.'); return }
     const params = new URLSearchParams({ title: form.title.trim(), description: form.description, category: form.category, photoDate: form.photoDate })
     setUploading(true); setError('')
     try {
@@ -1169,7 +1169,7 @@ function GalleryView({ currentUser }) {
         <label className="team-gallery-description"><span>Descripción</span><input name="description" maxLength="2000" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Añade un detalle si quieres" /></label>
         <label className={`team-gallery-file ${uploading ? 'disabled' : ''}`}><ImageIcon size={16} />{uploading ? 'Subiendo…' : 'Elegir imagen'}<input name="photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} /></label>
         <button className="primary-button" type="submit" disabled={uploading}>{uploading ? 'SUBIENDO…' : 'AGREGAR FOTO'}</button>
-        <small className="team-gallery-limit">JPG, PNG o WebP · máximo 5 MB</small>
+        <small className="team-gallery-limit">JPG, PNG o WebP · máximo 15 MB</small>
       </form>
     </article>}
     <article className="panel team-gallery-panel">
@@ -1285,7 +1285,7 @@ function CompetitionsView() {
   const refreshCompetitions = loadCompetitions
   const uploadMedalPhoto = async (raceId, file) => {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setError('La foto debe estar en formato JPG, PNG o WebP.'); return }
-    if (file.size > 5 * 1024 * 1024) { setError('La foto debe pesar menos de 5 MB.'); return }
+    if (file.size > 15 * 1024 * 1024) { setError('La foto debe pesar menos de 15 MB.'); return }
     setUploadingPhoto(raceId); setError('')
     try { await apiRequest(`/api/races/${raceId}/medal-photo`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file }); await refreshCompetitions() }
     catch (requestError) { setError(requestError.message) }
@@ -2129,7 +2129,7 @@ function DashboardGallerySlide({ photo }) {
     }).catch(() => setPhotoUrl(''))
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [photo.id])
-  return photoUrl ? <img className="dashboard-gallery-image" src={photoUrl} alt={photo.title} /> : <div className="dashboard-gallery-loading"><ImageIcon size={28} /><span>Cargando imagen…</span></div>
+  return photoUrl ? <div className="dashboard-gallery-photo-stage"><img className="dashboard-gallery-backdrop" src={photoUrl} alt="" aria-hidden="true" /><img className="dashboard-gallery-image" src={photoUrl} alt={photo.title} /></div> : <div className="dashboard-gallery-loading"><ImageIcon size={28} /><span>Cargando imagen…</span></div>
 }
 
 function DashboardGallerySlideshow({ onNavigate }) {

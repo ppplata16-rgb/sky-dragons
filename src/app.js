@@ -211,7 +211,7 @@ api.put('/races/:id', allow(...equipo), async (req, res, next) => {
   } catch (error) { next(error); }
 });
 api.use('/races', crud(M.Race, { write: equipo, include: [M.Competition, { model: M.Lineup, as: 'lineups', include: [{ model: M.LineupSeat, as: 'seats', include: [M.Member] }] }], exclude: ['medalPhoto'] }));
-api.post('/races/:id/medal-photo', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), async (req, res, next) => {
+api.post('/races/:id/medal-photo', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' }), async (req, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecciona una foto JPG, PNG o WebP.' });
     const race = await M.Race.findByPk(req.params.id);
@@ -249,7 +249,7 @@ api.get('/gallery', async (req, res, next) => {
     res.json({ data: photos });
   } catch (error) { next(error); }
 });
-api.post('/gallery', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), async (req, res, next) => {
+api.post('/gallery', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' }), async (req, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecciona una foto JPG, PNG o WebP.' });
     const title = String(req.query.title || '').trim().slice(0, 160);
