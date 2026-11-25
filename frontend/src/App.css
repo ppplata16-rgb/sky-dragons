@@ -593,7 +593,24 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(0,168,157,.38); 
 .season-summary strong { color: #087c78; font-size: 25px; }
 .season-summary span { color: #718793; font-size: 10px; }
 .season-summary .text-button { grid-column: 1 / -1; margin-top: 12px; }
-.athlete-profile-card { align-self: center; }
+.athlete-profile-card { align-self: center; width: min(860px,100%); }
+.sport-passport-book { margin:14px; overflow:hidden; border:1px solid #d5dfd2; border-radius:13px; color:#17364d; background-color:#f7f6ec; background-image:radial-gradient(ellipse at 88% 24%,#d9e8d7a1 0,transparent 34%),repeating-linear-gradient(135deg,#ffffff24 0,#ffffff24 2px,transparent 2px,transparent 8px); box-shadow:0 5px 18px #18364b0d; }
+.sport-passport-topline { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; padding:0 18px; color:#f8f7ee; background:#123b49; }
+.sport-passport-topline > div { display:flex; align-items:center; gap:9px; color:#d8ee92; }
+.sport-passport-topline > div > span { display:grid; gap:2px; color:#fff; font-size:9px; font-weight:900; letter-spacing:.14em; }
+.sport-passport-topline small { color:#a9c9c4; font-size:7px; font-weight:700; letter-spacing:.17em; }
+.sport-passport-season { padding:6px 9px; border:1px solid #ffffff42; border-radius:20px; color:#d8ee92; font-size:8px; font-weight:850; letter-spacing:.08em; }
+.sport-passport-book .athlete-profile-titlebar { min-height:128px; padding:17px 18px 13px; border-bottom:1px dashed #cbd6c9; }
+.sport-passport-book .athlete-profile-photo { width:76px; height:76px; border:2px solid rgba(255,255,255,.95); border-radius:50%; color:#14243a; background:#75a7ff; font-size:21px; box-shadow:0 2px 8px #17364d21; }
+.sport-passport-book .athlete-profile-identity h2 { color:#17364d; font-size:21px; }
+.sport-passport-number { display:flex; align-items:center; justify-content:space-between; padding:8px 18px 5px; color:#758b83; }
+.sport-passport-number span { font-size:7px; font-weight:900; letter-spacing:.15em; }
+.sport-passport-number strong { color:#087f7b; font-size:12px; letter-spacing:.12em; }
+.sport-passport-book .athlete-profile-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; padding:5px 18px 12px; background:transparent; }
+.sport-passport-book .athlete-profile-grid > div { min-height:55px; padding:9px 10px; border:1px solid #e1e7dc; border-radius:7px; background:#ffffffbd; }
+.sport-passport-book .athlete-profile-grid span { color:#718793; font-size:8px; font-weight:750; letter-spacing:.03em; text-transform:uppercase; }
+.sport-passport-book .athlete-profile-grid strong { color:#17364d; font-size:10px; }
+.sport-passport-notice { padding:8px 18px 11px; border-top:1px solid #e1e7dc; color:#778980; font-size:8px; font-style:italic; text-align:center; }
 .athlete-profile-titlebar { min-height:88px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; border-bottom:1px solid #eaf0f1; }.athlete-profile-identity { display:flex; min-width:0; align-items:center; gap:13px; }.athlete-profile-identity h2 { margin:0; color:#17364d; font-size:18px; }.athlete-profile-identity > div:last-child > span { display:block; margin-top:5px; color:#718793; font-size:9px; }.athlete-profile-photo { width:68px; height:68px; flex:none; overflow:hidden; display:grid; place-items:center; border:2px solid #dff0ed; border-radius:50%; color:#087f7b; background:#e8f5f2; font-size:21px; font-weight:850; }.athlete-profile-photo img { width:100%; height:100%; object-fit:cover; }.profile-photo-upload,.profile-photo-remove { min-height:32px; display:inline-flex; align-items:center; justify-content:center; padding:0 9px; border:1px solid #dce9e9; border-radius:7px; color:#087f7b; background:#f7fbfa; font-size:8px; font-weight:850; cursor:pointer; white-space:nowrap; }.profile-photo-upload input { display:none; }.profile-photo-remove { color:#9a6c5d; background:white; }.profile-photo-upload:hover,.profile-photo-remove:hover { border-color:#92c9c4; background:#eff9f7; }.profile-photo-upload:has(input:disabled),.profile-photo-remove:disabled { opacity:.6; cursor:wait; }.profile-photo-error { margin:10px 20px; color:#a84c35; font-size:10px; }
 .athlete-profile-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; padding: 14px 20px 20px; background: #eaf0f1; }
 .athlete-profile-grid > div { display: grid; gap: 5px; min-height: 62px; padding: 12px; background: white; }
@@ -618,6 +635,11 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(0,168,157,.38); 
   .saved-lineup-row { grid-template-columns: 1fr auto; }
   .saved-lineup-row small { grid-column: 2; grid-row: 2; }
   .athlete-profile-grid { padding: 12px; }
+  .athlete-profile-card { width:min(100%,860px); }
+  .sport-passport-book { margin:10px; }
+  .sport-passport-book .athlete-profile-grid { grid-template-columns:repeat(2,minmax(0,1fr)); padding:6px 13px 12px; }
+  .sport-passport-book .athlete-profile-titlebar { padding:13px; }
+  .sport-passport-topline { padding:0 13px; }
   .athlete-profile-titlebar { align-items:flex-start; flex-direction:column; padding:14px; }.athlete-profile-actions { width:100%; flex-wrap:wrap; }.athlete-profile-actions .close-button { margin-left:auto; }
   .athlete-profile-section { padding-right:12px; padding-left:12px; }
 }
@@ -626,6 +648,13 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(0,168,157,.38); 
   .lineup-readiness > div { flex: 1 0 100%; order: 3; }
   .saved-lineup-row { padding: 8px 14px; gap: 8px; }
   .race-result { grid-template-columns: 1fr 1fr; }
+  .sport-passport-topline { min-height:44px; }
+  .sport-passport-topline > div > span { font-size:8px; }
+  .sport-passport-season { font-size:7px; }
+  .sport-passport-book .athlete-profile-identity { gap:10px; }
+  .sport-passport-book .athlete-profile-photo { width:68px; height:68px; font-size:18px; }
+  .sport-passport-book .athlete-profile-identity h2 { font-size:17px; }
+  .sport-passport-book .athlete-profile-grid > div { padding:8px; }
 }
 
 .icon-danger-button { display: inline-grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid #f0d9d5; border-radius: 8px; color: #a84c35; background: #fff; transition: background .16s, border-color .16s; }
