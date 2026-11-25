@@ -6,7 +6,7 @@ import {
   Anchor, LifeBuoy, DollarSign, ReceiptText, CreditCard, ArrowDownRight,
   UserPlus, ShieldCheck, Trash2, Cake,
   Wrench, CalendarClock,
-  Pencil, RefreshCw, Download, Share2, LockKeyhole, Image as ImageIcon, X,
+  Pencil, RefreshCw, Download, Share2, LockKeyhole, Image as ImageIcon, X, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import skyDragonsLogo from './assets/sky-dragons-logo.png'
 import { authApi, apiRequest } from './api/client'
@@ -2116,6 +2116,50 @@ function LoginView({ onLogin }) {
   )
 }
 
+function DashboardGallerySlide({ photo }) {
+  const [photoUrl, setPhotoUrl] = useState('')
+  useEffect(() => {
+    let active = true
+    let objectUrl = ''
+    setPhotoUrl('')
+    apiRequest(`/api/gallery/${photo.id}/image`, { responseType: 'blob' }).then((blob) => {
+      if (!active) return
+      objectUrl = URL.createObjectURL(blob)
+      setPhotoUrl(objectUrl)
+    }).catch(() => setPhotoUrl(''))
+    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [photo.id])
+  return photoUrl ? <img className="dashboard-gallery-image" src={photoUrl} alt={photo.title} /> : <div className="dashboard-gallery-loading"><ImageIcon size={28} /><span>Cargando imagen…</span></div>
+}
+
+function DashboardGallerySlideshow({ onNavigate }) {
+  const [photos, setPhotos] = useState([])
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [paused, setPaused] = useState(false)
+  useEffect(() => {
+    let active = true
+    apiRequest('/api/gallery').then((result) => {
+      if (active) setPhotos((Array.isArray(result.data) ? result.data : []).slice(0, 8))
+    }).catch(() => { if (active) setPhotos([]) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+  useEffect(() => {
+    if (paused || photos.length < 2) return undefined
+    const timer = window.setInterval(() => setActiveIndex((index) => (index + 1) % photos.length), 6000)
+    return () => window.clearInterval(timer)
+  }, [photos.length, paused])
+
+  const move = (amount) => setActiveIndex((index) => (index + amount + photos.length) % photos.length)
+  const currentPhoto = photos[activeIndex]
+  return <article className="panel dashboard-gallery-panel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false) }}>
+    <div className="panel-header"><div><p className="roster-kicker">MOMENTOS DEL EQUIPO</p><h2>Galería</h2></div><button className="text-button" onClick={() => onNavigate('Galería')}>VER TODAS LAS FOTOS <ArrowUpRight size={15} /></button></div>
+    {currentPhoto ? <div className="dashboard-gallery-frame"><DashboardGallerySlide key={currentPhoto.id} photo={currentPhoto} /><div className="dashboard-gallery-shade" /><div className="dashboard-gallery-caption"><span>{currentPhoto.category || 'SKY DRAGONS'}</span><h3>{currentPhoto.title}</h3>{currentPhoto.photoDate && <time>{new Date(`${currentPhoto.photoDate}T12:00:00`).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}</time>}</div>
+      {photos.length > 1 && <><button className="dashboard-gallery-arrow previous" aria-label="Foto anterior" onClick={() => move(-1)}><ChevronLeft size={22} /></button><button className="dashboard-gallery-arrow next" aria-label="Foto siguiente" onClick={() => move(1)}><ChevronRight size={22} /></button><div className="dashboard-gallery-dots" aria-label="Diapositivas">{photos.map((photo, index) => <button key={photo.id} className={index === activeIndex ? 'active' : ''} aria-label={`Ver foto ${index + 1}: ${photo.title}`} aria-current={index === activeIndex ? 'true' : undefined} onClick={() => setActiveIndex(index)} />)}</div></>}
+    </div> : <div className="dashboard-gallery-empty"><ImageIcon size={30} /><strong>{loading ? 'Cargando galería…' : 'Aún no hay fotos'}</strong><span>{loading ? 'Las imágenes del equipo aparecerán aquí.' : 'Sube fotos desde la galería y se mostrarán en estas diapositivas.'}</span><button className="outline-button" onClick={() => onNavigate('Galería')}>ABRIR GALERÍA</button></div>}
+  </article>
+}
+
 function DashboardView({ onNavigate, demoEnabled, setDemoEnabled }) {
   const [summary, setSummary] = useState(null)
   const [members, setMembers] = useState([])
@@ -2190,6 +2234,7 @@ function DashboardView({ onNavigate, demoEnabled, setDemoEnabled }) {
         <button className="event-action" onClick={() => onNavigate(summary?.nextTraining ? 'Entrenamientos' : 'Calendario')}>VER AGENDA <ArrowUpRight size={15} /></button>
       </article>
     </div>
+    <DashboardGallerySlideshow onNavigate={onNavigate} />
     <div className="bottom-grid">
       <article className="panel team-panel"><div className="panel-header"><div><h2>Plantilla activa</h2><p>{members.length} atletas en el equipo</p></div><button className="text-button" onClick={() => onNavigate('Integrantes')}>VER PLANTILLA <ArrowUpRight size={15} /></button></div>
         <div className="member-table">{members.slice(0, 4).map((member) => { const fullName = `${member.firstName} ${member.lastName}`.trim(); const initials = fullName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(); return <div className="member-row" key={member.id}><div className="member-name"><b>{initials}</b><div><strong>{fullName}</strong><span>{member.role}</span></div></div><span className="status"><i /> Activo</span></div> })}{members.length === 0 && <div className="empty-state"><Users size={24} /><p>Agrega integrantes para ver la plantilla.</p></div>}</div>
