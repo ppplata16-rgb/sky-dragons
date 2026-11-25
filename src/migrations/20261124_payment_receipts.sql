@@ -1,0 +1,1 @@
+ALTER TABLE `Payments` ADD COLUMN `receiptUrl` VARCHAR(255) NULL;

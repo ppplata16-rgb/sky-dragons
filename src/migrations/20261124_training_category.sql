@@ -1,0 +1,1 @@
+ALTER TABLE `Trainings` ADD COLUMN `category` VARCHAR(30) NOT NULL DEFAULT 'Open 1';
