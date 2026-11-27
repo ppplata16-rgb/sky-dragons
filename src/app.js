@@ -307,11 +307,12 @@ api.use('/expenses', crud(M.Expense, { read: finanzas, write: finanzas }));
 api.use('/sponsors', crud(M.Sponsor, { read: [...finanzas, ...equipo], write: finanzas,
   include: [{ model: M.SponsorContribution, as: 'contributions' }] }));
 api.use('/sponsor-contributions', crud(M.SponsorContribution, { read: finanzas, write: finanzas }));
-api.use('/inventory-items', crud(M.InventoryItem, { write: equipo }));
-api.use('/inventory-assignments', crud(M.InventoryAssignment, { write: equipo, include: [M.InventoryItem, M.Member] }));
-api.use('/fleet-assets', crud(M.FleetAsset, { write: equipo }));
-api.use('/fleet-maintenance', crud(M.FleetMaintenance, { write: equipo, include: [M.FleetAsset] }));
+api.use('/inventory-items', crud(M.InventoryItem, { read: ['capitan', 'tesorero'], write: equipo }));
+api.use('/inventory-assignments', crud(M.InventoryAssignment, { read: ['capitan', 'tesorero'], write: equipo, include: [M.InventoryItem, M.Member] }));
+api.use('/fleet-assets', crud(M.FleetAsset, { read: ['capitan', 'tesorero'], write: equipo }));
+api.use('/fleet-maintenance', crud(M.FleetMaintenance, { read: ['capitan', 'tesorero'], write: equipo, include: [M.FleetAsset] }));
 api.get('/fleet-bookings', async (req, res, next) => {
+  if (!['admin', 'capitan', 'tesorero'].includes(req.user.role)) return res.status(403).json({ error: 'No tienes permiso para consultar la flota.' });
   try {
     const where = {};
     if (req.query.assetId) where.assetId = req.query.assetId;

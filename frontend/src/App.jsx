@@ -549,6 +549,7 @@ function RosterView({ currentUser }) {
 }
 
 function TrainingView({ currentUser }) {
+  const canManageTraining = ['admin', 'capitan'].includes(currentUser?.role)
   const [ergScores, setErgScores] = useState([])
   const [ergMembers, setErgMembers] = useState([])
   const [ergForm, setErgForm] = useState({ memberId: '', date: new Date().toISOString().slice(0, 10), distanceM: '2000', minutes: '', seconds: '', averageWatts: '', bodyWeightKg: '', contributionPercent: '', notes: '' })
@@ -558,14 +559,15 @@ function TrainingView({ currentUser }) {
   const [ergSyncing, setErgSyncing] = useState(false)
   const [ergFeedback, setErgFeedback] = useState('')
   useEffect(() => {
+    if (!canManageTraining) return
     Promise.all([apiRequest('/api/erg-scores?limit=500'), apiRequest('/api/members?status=activo&limit=500')])
       .then(([scores, people]) => { setErgScores(scores.data); setErgMembers(people.data) })
       .catch((requestError) => setErgError(requestError.message))
-  }, [])
+  }, [canManageTraining])
   useEffect(() => {
-    if (!ergForm.memberId) { setErgConnection(null); return }
+    if (!canManageTraining || !ergForm.memberId) { setErgConnection(null); return }
     apiRequest(`/api/ergdata/status/${ergForm.memberId}`).then(setErgConnection).catch(() => setErgConnection(null))
-  }, [ergForm.memberId])
+  }, [ergForm.memberId, canManageTraining])
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (!params.has('ergdata')) return
@@ -669,6 +671,15 @@ function TrainingView({ currentUser }) {
       setError('')
     } catch (requestError) { setError(requestError.message) }
   }
+
+  if (!canManageTraining) return <div className="training-view read-only-view">
+    <div className="read-only-notice"><LockKeyhole size={16} /><span>Modo solo lectura: puedes consultar entrenamientos, pero no programarlos ni modificarlos.</span></div>
+    {error && <p className="login-error" role="alert">{error}</p>}
+    <article className="panel training-history-panel">
+      <div className="panel-header"><div><p className="roster-kicker">AGENDA DEL EQUIPO</p><h2>Entrenamientos programados</h2></div><span className="inventory-count">{trainingRecords.length} sesiones</span></div>
+      {trainingRecords.length ? trainingRecords.map((record) => <div className="training-history-row" key={record.id}><div><strong>{record.notes || 'Sesión deportiva'}</strong><span>{record.date} · {record.startTime || 'Hora pendiente'} · {record.location || 'Lugar pendiente'}</span></div><span>{record.category || 'Sin categoría'} · {record.type} · {record.distanceM ? `${record.distanceM} m` : 'Sin distancia'}</span></div>) : <p className="saved-lineups-empty">Aún no hay entrenamientos guardados.</p>}
+    </article>
+  </div>
 
   return (
     <div className="training-view">
@@ -1039,6 +1050,7 @@ function PhysicalMetricsView({ currentUser }) {
       <div className="physical-metrics-heading"><div><p className="roster-kicker">SEGUIMIENTO FÍSICO</p><h2>Métricas por remero</h2><p>Registra evaluaciones y revisa cómo evoluciona cada atleta a lo largo de la temporada.</p></div><Activity size={25} /></div>
       {error && <p className="login-error" role="alert">{error}</p>}
       {message && <p className="settings-message success" role="status">{message}</p>}
+      {!canEdit && <div className="read-only-notice"><LockKeyhole size={16} /><span>Modo solo lectura: puedes consultar las métricas, pero no registrar ni eliminar mediciones.</span></div>}
       <div className="physical-metrics-toolbar"><label><span>Selecciona un remero</span><select value={memberId} onChange={(event) => { setMemberId(event.target.value); setMessage('') }} disabled={!members.length}><option value="">{members.length ? 'Selecciona un remero' : 'No hay integrantes registrados'}</option>{members.map((member) => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></label>{selectedMember && <div className="physical-member-facts"><span>{selectedMember.category || 'Sin categoría'}</span>{selectedMember.weightKg && <span>Peso en ficha: {selectedMember.weightKg} kg</span>}{selectedMember.heightCm && <span>Estatura: {selectedMember.heightCm} cm</span>}</div>}</div>
     </article>
 
@@ -1667,7 +1679,8 @@ function buildBoatSeats(boatType, rowerCount, previous = []) {
   ]
 }
 
-function LineupsView() {
+function LineupsView({ currentUser }) {
+  const canManage = ['admin', 'capitan'].includes(currentUser?.role)
   const [category, setCategory] = useState('Open 1')
   const [boatName, setBoatName] = useState('Alineacion principal')
   const [boatType, setBoatType] = useState('DB12')
@@ -1686,9 +1699,10 @@ function LineupsView() {
   const rowersNeeded = boatType === 'DB12' ? 10 : Number(rowerCount)
 
   useEffect(() => {
-    apiRequest(`/api/members?category=${encodeURIComponent(category)}&limit=500`)
+    apiRequest(canManage ? `/api/members?category=${encodeURIComponent(category)}&limit=500` : '/api/members?limit=500')
       .then((result) => {
         setMembers(result.data)
+        if (!canManage) return
         setSeats((current) => current.map((seat) => {
           const member = result.data.find((item) => String(item.id) === String(seat.member) || `${item.firstName} ${item.lastName}`.trim() === seat.member)
           return member ? { ...seat, member: String(member.id) } : seat
@@ -1698,19 +1712,22 @@ function LineupsView() {
     apiRequest('/api/lineups?limit=30')
       .then((result) => setSavedLineups(result.data))
       .catch((requestError) => setError(requestError.message))
-    apiRequest('/api/reports/history')
+    if (canManage) {
+      apiRequest('/api/reports/history')
       .then((events) => setRaces(events.flatMap((event) => (event.races || []).map((race) => ({ ...race, eventName: event.name, eventDate: event.startDate })))))
       .catch((requestError) => setError(requestError.message))
     apiRequest('/api/erg-scores?limit=500').then((result) => setErgData(result.data)).catch(() => setErgData([]))
-    apiRequest('/api/reports/attendance').then((result) => setAttendanceData(result.integrantes)).catch(() => setAttendanceData([]))
-  }, [category])
+      apiRequest('/api/reports/attendance').then((result) => setAttendanceData(result.integrantes)).catch(() => setAttendanceData([]))
+    }
+  }, [category, canManage])
 
   useEffect(() => {
+    if (!canManage) return
     setSeats((previous) => buildBoatSeats(boatType, rowerCount, previous))
     const reserveLimit = boatType === 'DB12' ? 2 : 4
     setReserveValues((current) => Array.from({ length: reserveLimit }, (_, index) => current[index] || ''))
     setSaved(false)
-  }, [boatType, rowerCount, setSeats, setReserveValues])
+  }, [boatType, rowerCount, setSeats, setReserveValues, canManage])
 
   const assignMember = (seatId, member) => {
     setSeats((current) => current.map((seat) => seat.id === seatId ? { ...seat, member } : seat))
@@ -1808,6 +1825,20 @@ function LineupsView() {
     } catch (requestError) { setError(requestError.message) }
   }
 
+  if (!canManage) return <div className="lineups-view read-only-view">
+    <div className="read-only-notice"><LockKeyhole size={16} /><span>Modo solo lectura: estas alineaciones se pueden consultar, pero no editar ni guardar.</span></div>
+    <article className="panel saved-lineups-panel">
+      <div className="panel-header"><div><p className="roster-kicker">ALINEACIONES DEL EQUIPO</p><h2>Alineaciones guardadas</h2></div><span className="inventory-count">{savedLineups.length} registros</span></div>
+      {savedLineups.length ? savedLineups.map((lineup) => {
+        const crew = (lineup.seats || []).map((seat) => {
+          const member = members.find((item) => Number(item.id) === Number(seat.memberId))
+          return member ? { name: `${member.firstName} ${member.lastName}`.trim(), role: seat.seatRole, row: seat.rowNumber, side: seat.side } : null
+        }).filter(Boolean)
+        return <section className="reader-lineup-card" key={lineup.id}><div><strong>{lineup.name || 'Alineación'}</strong><span>{lineup.category || 'Sin categoría'} · {lineup.boatType || 'DB12'} · {crew.length} integrantes</span></div><div className="reader-lineup-crew">{crew.map((seat, index) => <span key={`${lineup.id}-${index}`}>{seat.name}{seat.role === 'remero' && seat.row ? ` · Puesto ${seat.row} ${seat.side || ''}` : seat.role ? ` · ${seat.role}` : ''}</span>)}</div></section>
+      }) : <p className="saved-lineups-empty">Aún no hay alineaciones guardadas.</p>}
+    </article>
+  </div>
+
   return (
     <div className="lineups-view">
       <div className="lineups-toolbar">
@@ -1864,7 +1895,8 @@ function LineupsView() {
     </div>
   )
 }
-function CalendarView() {
+function CalendarView({ currentUser }) {
+  const canEdit = ['admin', 'capitan'].includes(currentUser?.role)
   const [events, setEvents] = useStoredState('sky-dragons-calendar', [])
   const [members, setMembers] = useState([])
   const [trainingEvents, setTrainingEvents] = useState([])
@@ -1932,9 +1964,10 @@ function CalendarView() {
   return (
     <div className="calendar-view">
       {error && <p className="login-error" role="alert">No se pudieron cargar los cumpleaños: {error}</p>}
+      {!canEdit && <div className="read-only-notice"><LockKeyhole size={16} /><span>Modo solo lectura: puedes consultar la agenda, pero no crear eventos ni cambiar asistencia.</span></div>}
       <div className="calendar-toolbar">
         <div className="calendar-controls"><button onClick={() => setMonthOffset((value) => value - 1)}>‹</button><h2>{monthName}</h2><button onClick={() => setMonthOffset((value) => value + 1)}>›</button></div>
-        <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> NUEVO EVENTO</button>
+        {canEdit && <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> NUEVO EVENTO</button>}
       </div>
 
       <article className="panel calendar-panel">
@@ -1955,9 +1988,9 @@ function CalendarView() {
             const totalDayEvents = valid ? birthdayEvents.length + calendarEvents.filter((entry) => entry.date === dateKey).length : 0
             const isToday = valid && day === baseDate.getDate() && month === baseDate.getMonth() && year === baseDate.getFullYear()
             return (
-              <div key={`${month}-${index}`} role="button" tabIndex={valid ? 0 : -1} className={valid ? `calendar-day ${isToday ? 'today' : ''}` : 'calendar-day outside'} onClick={() => { if (valid) { setEventDraft((current) => ({ ...current, date: dateKey })); setShowForm(true) } }} onKeyDown={(event) => { if (valid && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setEventDraft((current) => ({ ...current, date: dateKey })); setShowForm(true) } }}>
+              <div key={`${month}-${index}`} role={canEdit ? 'button' : 'gridcell'} tabIndex={canEdit && valid ? 0 : -1} className={valid ? `calendar-day ${isToday ? 'today' : ''}` : 'calendar-day outside'} onClick={() => { if (canEdit && valid) { setEventDraft((current) => ({ ...current, date: dateKey })); setShowForm(true) } }} onKeyDown={(event) => { if (canEdit && valid && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setEventDraft((current) => ({ ...current, date: dateKey })); setShowForm(true) } }}>
                 {valid && <span className="day-number">{day}</span>}
-                {dayEvents.map((entry) => <span key={entry.id} className={`calendar-event ${entry.type.toLowerCase()}`} title={`${entry.time ? `${entry.time} · ` : ''}${entry.location || ''}`} onClick={(event) => { if (entry.isBirthday || entry.isTraining) event.stopPropagation(); if (entry.isTraining) openTrainingAttendance(entry.trainingId) }}>{entry.isBirthday ? <Cake size={11} /> : <b>{entry.time}</b>}<span className="calendar-event-title">{entry.title}</span>{!entry.isBirthday && !entry.isTraining && <button className="calendar-event-delete" aria-label={`Borrar ${entry.title}`} title="Borrar evento" onClick={(event) => { event.stopPropagation(); deleteEvent(entry) }} onKeyDown={(event) => event.stopPropagation()}><Trash2 size={11} /></button>}</span>)}
+                {dayEvents.map((entry) => <span key={entry.id} className={`calendar-event ${entry.type.toLowerCase()}`} title={`${entry.time ? `${entry.time} · ` : ''}${entry.location || ''}`} onClick={(event) => { if (entry.isBirthday || entry.isTraining) event.stopPropagation(); if (entry.isTraining && canEdit) openTrainingAttendance(entry.trainingId) }}>{entry.isBirthday ? <Cake size={11} /> : <b>{entry.time}</b>}<span className="calendar-event-title">{entry.title}</span>{canEdit && !entry.isBirthday && !entry.isTraining && <button className="calendar-event-delete" aria-label={`Borrar ${entry.title}`} title="Borrar evento" onClick={(event) => { event.stopPropagation(); deleteEvent(entry) }} onKeyDown={(event) => event.stopPropagation()}><Trash2 size={11} /></button>}</span>)}
                 {valid && totalDayEvents > dayEvents.length && <span className="calendar-more-events">+{totalDayEvents - dayEvents.length} más</span>}
               </div>
             )
@@ -2371,10 +2404,12 @@ function App() {
         </div>
         <nav className="nav-list">
           {nav.map(({ label, icon: Icon }) => {
-            const locked = label === 'Finanzas' && !['admin', 'tesorero'].includes(user.role)
+            const readerBlocked = user.role === 'lector' && ['Inventario', 'Flota y reservas'].includes(label)
+            const locked = readerBlocked || (label === 'Finanzas' && !['admin', 'tesorero'].includes(user.role))
+            const lockMessage = readerBlocked ? 'Sin acceso para lector' : 'Módulo restringido'
             return locked ? (
               <button key={label} className="nav-item locked" type="button" disabled title="No tienes permiso para entrar a este módulo." aria-label={`${label}. Restringido para tu rol.`}>
-                <Icon size={20} strokeWidth={2.2} /><span>{label}<small>Módulo restringido</small></span><LockKeyhole className="nav-lock-icon" size={15} />
+                <Icon size={20} strokeWidth={2.2} /><span>{label}<small>{lockMessage}</small></span><LockKeyhole className="nav-lock-icon" size={15} />
               </button>
             ) : (
               <button key={label} className={active === label ? 'nav-item active' : 'nav-item'} onClick={() => { setActive(label); setMobileOpen(false) }}>
@@ -2408,7 +2443,7 @@ function App() {
         <section className="page">
           <div className="page-heading">
             <div><p className="eyebrow">TEMPORADA 2026 · SIN DATOS</p><h1>{active === 'Integrantes' ? 'Categorías y roster' : active === 'Entrenamientos' ? 'Programación de entrenamientos' : active === 'Concept2' ? 'Datos de ergómetro por sesión' : active === 'Métricas' ? 'Seguimiento físico por remero' : active === 'Competencias' ? 'Competiciones y medallero' : active === 'Inventario' ? 'Inventario del equipo' : active === 'Flota y reservas' ? 'Bitácora de flota y reservas' : active === 'Finanzas' ? 'Administración financiera' : active === 'Alineaciones' ? 'Alineación del bote' : active === 'Calendario' ? 'Calendario deportivo' : active === 'Galería' ? 'Galería de imágenes del equipo' : active === 'Reportes' ? 'Reportes de temporada' : active === 'Configuración' ? 'Configuración y usuarios' : 'Centro deportivo'}</h1></div>
-            <div className="heading-actions">{active === 'Centro deportivo' && <button className="demo-toggle" onClick={() => setDemoEnabled((current) => !current)}>{demoEnabled ? 'Quitar datos demo' : 'Cargar demo'}</button>}{!['Métricas', 'Galería'].includes(active) && <button className="primary-button" onClick={() => setActive('Entrenamientos')}><Plus size={18} /> NUEVA ACTIVIDAD</button>}</div>
+            <div className="heading-actions">{active === 'Centro deportivo' && <button className="demo-toggle" onClick={() => setDemoEnabled((current) => !current)}>{demoEnabled ? 'Quitar datos demo' : 'Cargar demo'}</button>}{['admin', 'capitan'].includes(user.role) && !['Métricas', 'Galería'].includes(active) && <button className="primary-button" onClick={() => setActive('Entrenamientos')}><Plus size={18} /> NUEVA ACTIVIDAD</button>}</div>
           </div>
 
           {user ? (
@@ -2429,9 +2464,9 @@ function App() {
             ) : active === 'Finanzas' ? (
               <FinanceView />
             ) : active === 'Alineaciones' ? (
-              <LineupsView />
+              <LineupsView currentUser={user} />
             ) : active === 'Calendario' ? (
-              <CalendarView />
+              <CalendarView currentUser={user} />
             ) : active === 'Galería' ? (
               <GalleryView currentUser={user} />
             ) : active === 'Reportes' ? (
