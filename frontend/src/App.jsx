@@ -11,6 +11,7 @@ import {
 import skyDragonsLogo from './assets/sky-dragons-logo.png'
 import { authApi, apiRequest } from './api/client'
 import { Capacitor } from '@capacitor/core'
+import { LocalNotifications } from '@capacitor/local-notifications'
 import './App.css'
 
 const members = []
@@ -54,6 +55,20 @@ const medalsByCategory = {
 }
 
 const inventoryItems = []
+
+function reminderId(seed) {
+  let hash = 2166136261
+  for (const character of String(seed)) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619)
+  return (Math.abs(hash) % 2147483646) + 1
+}
+
+function localDateTime(date, time = '08:00') {
+  const [year, month, day] = String(date || '').slice(0, 10).split('-').map(Number)
+  const [hours = 8, minutes = 0] = String(time || '08:00').split(':').map(Number)
+  if (!year || !month || !day) return null
+  const result = new Date(year, month - 1, day, hours, minutes, 0, 0)
+  return Number.isNaN(result.getTime()) ? null : result
+}
 
 function useStoredState(key, initialValue) {
   const [value, setValue] = useState(() => {
@@ -2363,6 +2378,77 @@ function App() {
   const [searching, setSearching] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [phoneReminderBusy, setPhoneReminderBusy] = useState(false)
+  const [phoneReminderMessage, setPhoneReminderMessage] = useState('')
+  const [phoneReminderCount, setPhoneReminderCount] = useState(0)
+
+  const refreshPhoneReminders = async ({ askPermission = false } = {}) => {
+    if (!Capacitor.isNativePlatform()) {
+      setPhoneReminderMessage('Instala la app Android o iOS para programar avisos en este teléfono.')
+      return
+    }
+    setPhoneReminderBusy(true)
+    setPhoneReminderMessage('')
+    try {
+      let permission = await LocalNotifications.checkPermissions()
+      if (permission.display !== 'granted' && askPermission) permission = await LocalNotifications.requestPermissions()
+      if (permission.display !== 'granted') {
+        setPhoneReminderMessage(permission.display === 'denied' ? 'Permiso denegado. Activa las notificaciones de Sky Dragons en Ajustes del teléfono.' : 'Permite las notificaciones para recibir avisos de entrenamientos.')
+        return
+      }
+
+      if (Capacitor.getPlatform() === 'android') {
+        await LocalNotifications.createChannel({ id: 'team-reminders', name: 'Avisos del equipo', description: 'Recordatorios de entrenamientos y competencias', importance: 5, vibration: true })
+      }
+
+      const [trainingResult, competitionResult, pendingResult] = await Promise.all([
+        apiRequest('/api/trainings?limit=500'),
+        apiRequest('/api/competitions?limit=500'),
+        LocalNotifications.getPending(),
+      ])
+      const oldReminders = pendingResult.notifications.filter((notification) => notification.extra?.skyDragonsReminder).map(({ id }) => ({ id }))
+      if (oldReminders.length) await LocalNotifications.cancel({ notifications: oldReminders })
+
+      const now = Date.now()
+      const reminders = []
+      for (const training of trainingResult.data) {
+        const startsAt = localDateTime(training.date, training.startTime || '08:00')
+        if (!startsAt) continue
+        const at = new Date(startsAt.getTime() - 60 * 60 * 1000)
+        if (at.getTime() <= now || startsAt.getTime() > now + 30 * 24 * 60 * 60 * 1000) continue
+        reminders.push({
+          id: reminderId(`training-${training.id}`),
+          title: 'Entrenamiento en una hora',
+          body: `${training.category || 'Equipo'}${training.location ? ` · ${training.location}` : ''}${training.notes ? ` · ${training.notes}` : ''}`,
+          schedule: { at, allowWhileIdle: true },
+          channelId: 'team-reminders',
+          extra: { skyDragonsReminder: true, type: 'training', recordId: training.id },
+        })
+      }
+      for (const competition of competitionResult.data) {
+        const startsAt = localDateTime(competition.startDate, '09:00')
+        if (!startsAt) continue
+        const at = new Date(startsAt)
+        at.setDate(at.getDate() - 1)
+        if (at.getTime() <= now || startsAt.getTime() > now + 60 * 24 * 60 * 60 * 1000) continue
+        reminders.push({
+          id: reminderId(`competition-${competition.id}`),
+          title: 'Competencia mañana',
+          body: `${competition.name || 'Competencia'}${competition.venue ? ` · ${competition.venue}` : ''}`,
+          schedule: { at, allowWhileIdle: true },
+          channelId: 'team-reminders',
+          extra: { skyDragonsReminder: true, type: 'competition', recordId: competition.id },
+        })
+      }
+
+      const nextReminders = reminders.sort((a, b) => a.schedule.at.getTime() - b.schedule.at.getTime()).slice(0, 60)
+      if (nextReminders.length) await LocalNotifications.schedule({ notifications: nextReminders })
+      setPhoneReminderCount(nextReminders.length)
+      setPhoneReminderMessage(nextReminders.length ? `${nextReminders.length} avisos programados en este teléfono.` : 'No hay entrenamientos o competencias próximos para avisar.')
+    } catch (error) {
+      setPhoneReminderMessage(error.message || 'No se pudieron programar los avisos.')
+    } finally { setPhoneReminderBusy(false) }
+  }
 
   const handleLogin = (userData) => {
     setUser(userData)
@@ -2383,6 +2469,22 @@ function App() {
         localStorage.removeItem('sky_dragons_token')
         setUser(null)
       })
+  }, [])
+
+  useEffect(() => {
+    if (!user || !Capacitor.isNativePlatform()) return
+    refreshPhoneReminders()
+    const handleVisibility = () => { if (document.visibilityState === 'visible') refreshPhoneReminders() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [user])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let notificationListener
+    LocalNotifications.addListener('localNotificationActionPerformed', () => setActive('Calendario'))
+      .then((listener) => { notificationListener = listener })
+    return () => { notificationListener?.remove() }
   }, [])
 
   useEffect(() => {
@@ -2464,7 +2566,7 @@ function App() {
           </div>
           <div className="topbar-actions">
             <InstallAppButton />
-            <div className="topbar-popover-anchor"><button className="icon-button notification" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setProfileOpen(false) }}><Bell size={20} /><span /></button>{notificationsOpen && <div className="topbar-popover"><strong>Notificaciones</strong><p>No tienes notificaciones pendientes.</p><button onClick={() => { setNotificationsOpen(false); setActive('Calendario') }}>Abrir calendario</button></div>}</div>
+            <div className="topbar-popover-anchor"><button className="icon-button notification" aria-label="Notificaciones" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setProfileOpen(false) }}><Bell size={20} /><span /></button>{notificationsOpen && <div className="topbar-popover phone-notification-popover"><strong>Avisos del equipo</strong><p>Recibe un aviso una hora antes de los entrenamientos y el día anterior a las competencias.</p>{Capacitor.isNativePlatform() ? <button disabled={phoneReminderBusy} onClick={() => refreshPhoneReminders({ askPermission: true })}>{phoneReminderBusy ? 'Programando…' : phoneReminderCount ? 'Actualizar avisos' : 'Activar avisos en este teléfono'}</button> : <small>Instala la app Android o iOS para programar avisos en este teléfono.</small>}{phoneReminderMessage && <small role="status">{phoneReminderMessage}</small>}<button onClick={() => { setNotificationsOpen(false); setActive('Calendario') }}>Abrir calendario</button></div>}</div>
             <div className="topbar-popover-anchor"><button className="profile profile-button" aria-expanded={profileOpen} onClick={() => { setProfileOpen((open) => !open); setNotificationsOpen(false) }}><div className="avatar">{(user.name || 'AD').split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</div><div className="profile-copy"><strong>{user.name || 'Usuario'}</strong><span>{user.role || 'Usuario'}</span></div><ChevronDown size={16} /></button>{profileOpen && <div className="topbar-popover profile-popover"><strong>{user.email || user.name}</strong><span>Rol: {user.role || 'lector'}</span>{user.role === 'admin' && <button onClick={() => { setProfileOpen(false); setActive('Configuración') }}>Configuración</button>}<button onClick={handleLogout}>Cerrar sesión</button></div>}</div>
           </div>
         </header>

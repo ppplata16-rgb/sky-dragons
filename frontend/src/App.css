@@ -462,6 +462,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid rgba(0,168,157,.38); 
 .topbar-popover p,.topbar-popover span { margin: 0; color: #788791; }
 .topbar-popover button { border: 0; border-radius: 6px; padding: 8px; background: #f1f7f6; color: #087f7b; text-align: left; font: inherit; cursor: pointer; }
 .topbar-popover button:hover { background: #e4f2ef; }
+.phone-notification-popover small { color:#71818d; font-size:10px; line-height:1.45; }
+.phone-notification-popover button:disabled { opacity:.6; cursor:wait; }
 .profile-popover { width: 210px; }
 .erg-chart { max-width: 560px; margin: 16px auto; padding: 12px; border: 1px solid #e4ecec; border-radius: 9px; color: #73818a; font-size: 11px; }
 .erg-chart p { margin: 0 0 8px; }
