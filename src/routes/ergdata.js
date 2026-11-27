@@ -81,7 +81,7 @@ publicRouter.get('/callback', async (req, res) => {
   }
 });
 
-protectedRouter.use(authenticate, allow('capitan'));
+protectedRouter.use(authenticate, allow('capitan', 'capitan_general'));
 protectedRouter.post('/connect/:memberId', async (req, res, next) => {
   try {
     const config = envConfig();

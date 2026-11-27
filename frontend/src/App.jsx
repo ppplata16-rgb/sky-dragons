@@ -40,6 +40,8 @@ const categoryRosters = {
   Rookie: [],
 }
 
+const roleLabels = { admin: 'Administrador', capitan: 'Capitán', capitan_general: 'Capitán general', tesorero: 'Tesorero', lector: 'Lector' }
+
 const pastCompetitions = []
 
 const medalsByCategory = {
@@ -155,7 +157,7 @@ async function fetchAllRows(path, pageSize = 500) {
 function RosterView({ currentUser }) {
   const [selectedCategory, setSelectedCategory] = useStoredState('selectedCategory', currentUser?.teamCategory || 'Open 1')
   const isCaptain = currentUser?.role === 'capitan'
-  const canManageRoster = ['admin', 'capitan'].includes(currentUser?.role)
+  const canManageRoster = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
   const activeCategory = isCaptain ? (currentUser.teamCategory || '') : selectedCategory
   const rosterCategories = isCaptain ? (currentUser.teamCategory ? [currentUser.teamCategory] : []) : Object.keys(categoryRosters)
   const [rosters, setRosters] = useState(categoryRosters)
@@ -271,7 +273,7 @@ function RosterView({ currentUser }) {
 
   useEffect(() => {
     setHealth({ allergies: '', medicalNotes: '', medicalClearanceUntil: '' }); setHealthMessage('')
-    if (!selectedAthlete || !['admin', 'capitan'].includes(currentUser?.role)) return
+    if (!selectedAthlete || !['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)) return
     apiRequest(`/api/members/${selectedAthlete.id}/health`).then((data) => setHealth({ allergies: data.allergies || '', medicalNotes: data.medicalNotes || '', medicalClearanceUntil: data.medicalClearanceUntil || '' })).catch((requestError) => setHealthMessage(requestError.message))
   }, [selectedAthlete, currentUser])
 
@@ -288,7 +290,7 @@ function RosterView({ currentUser }) {
   const progressRecords = athleteRaces.filter((race) => String(race.distanceM) === activeProgressDistance && Number(race.timeSeconds) > 0).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')))
   const fastestTime = progressRecords.length ? Math.min(...progressRecords.map((race) => Number(race.timeSeconds))) : null
   const slowestTime = progressRecords.length ? Math.max(...progressRecords.map((race) => Number(race.timeSeconds))) : null
-  const canManageProfilePhoto = ['admin', 'capitan'].includes(currentUser?.role) || Number(currentUser?.memberId) === Number(selectedAthlete?.id)
+  const canManageProfilePhoto = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role) || Number(currentUser?.memberId) === Number(selectedAthlete?.id)
 
   const addAthlete = async (event) => {
     event.preventDefault()
@@ -533,7 +535,7 @@ function RosterView({ currentUser }) {
         <section className="athlete-profile-section"><div className="athlete-section-heading"><div><p className="roster-kicker">HISTORIAL DE CLUBES</p><h3>Equipos donde ha remado</h3></div><Users size={19} /></div><p className="athlete-profile-text">{selectedAthlete.rowingTeams || 'Aún no se han agregado equipos anteriores.'}</p></section>
         <section className="athlete-profile-section"><div className="athlete-section-heading"><div><p className="roster-kicker">TRAYECTORIA DEPORTIVA</p><h3>Palmarés</h3></div><Medal size={19} /></div><p className="athlete-profile-text">{selectedAthlete.palmares || 'Aún no se han registrado logros destacados.'}</p></section>
         <section className="athlete-availability"><div><p className="roster-kicker">ORGANIZACIÓN DE ENTRENAMIENTOS</p><h3>Disponibilidad</h3></div><div className="availability-days">{selectedAthlete.availableDays?.length ? selectedAthlete.availableDays.map((day) => <span key={day}>{day}</span>) : <span className="availability-unset">Días habituales sin informar</span>}</div>{selectedAthlete.unavailableFrom || selectedAthlete.unavailableUntil ? <div className="availability-notice"><strong>Aviso temporal</strong><span>{selectedAthlete.unavailableFrom || 'Inicio pendiente'} – {selectedAthlete.unavailableUntil || 'Sin fecha final'}</span>{selectedAthlete.availabilityNotes && <small>{selectedAthlete.availabilityNotes}</small>}</div> : selectedAthlete.availabilityNotes && <div className="availability-notice"><strong>Nota</strong><small>{selectedAthlete.availabilityNotes}</small></div>}</section>
-        {['admin', 'capitan'].includes(currentUser?.role) && <section className="athlete-history-section"><div className="athlete-section-heading"><div><p className="roster-kicker">ACCESO RESTRINGIDO</p><h3>Salud y autorización</h3></div><ShieldCheck size={19} /></div><div className="training-form"><label className="full-field"><span>Alergias</span><textarea value={health.allergies} onChange={(event) => setHealth({ ...health, allergies: event.target.value })} /></label><label className="full-field"><span>Notas médicas relevantes</span><textarea value={health.medicalNotes} onChange={(event) => setHealth({ ...health, medicalNotes: event.target.value })} /></label><label><span>Autorización médica vigente hasta</span><input type="date" value={health.medicalClearanceUntil} onChange={(event) => setHealth({ ...health, medicalClearanceUntil: event.target.value })} /></label><button className="primary-button" disabled={healthSaving} onClick={saveHealth}>{healthSaving ? 'Guardando…' : 'Guardar ficha médica'}</button>{healthMessage && <small>{healthMessage}</small>}</div></section>}
+        {['admin', 'capitan', 'capitan_general'].includes(currentUser?.role) && <section className="athlete-history-section"><div className="athlete-section-heading"><div><p className="roster-kicker">ACCESO RESTRINGIDO</p><h3>Salud y autorización</h3></div><ShieldCheck size={19} /></div><div className="training-form"><label className="full-field"><span>Alergias</span><textarea value={health.allergies} onChange={(event) => setHealth({ ...health, allergies: event.target.value })} /></label><label className="full-field"><span>Notas médicas relevantes</span><textarea value={health.medicalNotes} onChange={(event) => setHealth({ ...health, medicalNotes: event.target.value })} /></label><label><span>Autorización médica vigente hasta</span><input type="date" value={health.medicalClearanceUntil} onChange={(event) => setHealth({ ...health, medicalClearanceUntil: event.target.value })} /></label><button className="primary-button" disabled={healthSaving} onClick={saveHealth}>{healthSaving ? 'Guardando…' : 'Guardar ficha médica'}</button>{healthMessage && <small>{healthMessage}</small>}</div></section>}
         <section className="athlete-history-section">
           <div className="athlete-section-heading"><div><p className="roster-kicker">CONSTANCIA</p><h3>Asistencia a entrenamientos</h3></div><CalendarDays size={19} /></div>
           <div className="athlete-attendance-card"><div className="athlete-attendance-summary"><strong>{sportHistory?.attendancePercent == null ? '—' : `${sportHistory.attendancePercent}%`}</strong><div><b>Asistencia registrada</b><span>{sportHistory?.countedTrainings || 0} sesiones evaluables · {sportHistory?.justifiedTrainings || 0} justificadas</span></div></div><div className="athlete-attendance-meter"><i style={{ width: `${sportHistory?.attendancePercent ?? 0}%` }} /></div><div className="athlete-attendance-breakdown"><span className="present">{sportHistory?.attendedTrainings || 0} presentes</span><span className="absent">{sportHistory?.absentTrainings || 0} ausencias</span><span className="excused">{sportHistory?.justifiedTrainings || 0} justificadas</span></div></div>
@@ -554,7 +556,7 @@ function RosterView({ currentUser }) {
 }
 
 function TrainingView({ currentUser }) {
-  const canManageTraining = ['admin', 'capitan'].includes(currentUser?.role)
+  const canManageTraining = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
   const [ergScores, setErgScores] = useState([])
   const [ergMembers, setErgMembers] = useState([])
   const [ergForm, setErgForm] = useState({ memberId: '', date: new Date().toISOString().slice(0, 10), distanceM: '2000', minutes: '', seconds: '', averageWatts: '', bodyWeightKg: '', contributionPercent: '', notes: '' })
@@ -754,7 +756,7 @@ function TrainingView({ currentUser }) {
       )}
           <article className="panel erg-panel">
         <div className="panel-header"><div><p className="roster-kicker">ERGÓMETRO · PROGRESO INDIVIDUAL</p><h2>Marcas por integrante</h2><p>Registra pruebas y compara cada distancia con la marca anterior.</p></div></div>
-        <div className="ergdata-connect"><div><strong>{ergConnection?.connected ? `Concept2 conectado${ergConnection.username ? ` · ${ergConnection.username}` : ''}` : 'Concept2 Logbook / ErgData'}</strong><span>{ergConnection?.lastSyncedAt ? `Última sincronización: ${new Date(ergConnection.lastSyncedAt).toLocaleString('es')}` : 'Autoriza el Logbook del atleta para importar sus sesiones de remo.'}</span></div>{['admin', 'capitan'].includes(currentUser?.role) && <div className="ergdata-actions"><button className="outline-button" disabled={!ergForm.memberId} onClick={connectErgData}>{ergConnection?.connected ? 'VINCULAR OTRA CUENTA' : 'CONECTAR CONCEPT2'}</button><button className="primary-button" disabled={!ergForm.memberId || !ergConnection?.connected || ergSyncing} onClick={syncErgData}>{ergSyncing ? 'IMPORTANDO…' : 'SINCRONIZAR'}</button></div>}</div>{ergFeedback && <p className="ergdata-feedback" role="status">{ergFeedback}</p>}
+        <div className="ergdata-connect"><div><strong>{ergConnection?.connected ? `Concept2 conectado${ergConnection.username ? ` · ${ergConnection.username}` : ''}` : 'Concept2 Logbook / ErgData'}</strong><span>{ergConnection?.lastSyncedAt ? `Última sincronización: ${new Date(ergConnection.lastSyncedAt).toLocaleString('es')}` : 'Autoriza el Logbook del atleta para importar sus sesiones de remo.'}</span></div>{['admin', 'capitan', 'capitan_general'].includes(currentUser?.role) && <div className="ergdata-actions"><button className="outline-button" disabled={!ergForm.memberId} onClick={connectErgData}>{ergConnection?.connected ? 'VINCULAR OTRA CUENTA' : 'CONECTAR CONCEPT2'}</button><button className="primary-button" disabled={!ergForm.memberId || !ergConnection?.connected || ergSyncing} onClick={syncErgData}>{ergSyncing ? 'IMPORTANDO…' : 'SINCRONIZAR'}</button></div>}</div>{ergFeedback && <p className="ergdata-feedback" role="status">{ergFeedback}</p>}
         {ergError && <p className="login-error" role="alert">{ergError}</p>}
         <form className="training-form erg-form" onSubmit={saveErgScore}>
           <label><span>Integrante</span><select required value={ergForm.memberId} onChange={(e) => setErgForm({ ...ergForm, memberId: e.target.value })}><option value="">Seleccionar</option>{ergMembers.map((m) => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>)}</select></label>
@@ -870,7 +872,7 @@ function Concept2View({ currentUser, onNavigate }) {
     return { distance, watts: rows.length ? rows.reduce((sum, score) => sum + Number(score.averageWatts), 0) / rows.length : 0, sessions: rows.length }
   }).filter((item) => item.watts > 0)
   const maxDistanceWatts = Math.max(1, ...wattsByDistance.map((item) => item.watts))
-  const canManageConcept2 = ['admin', 'capitan'].includes(currentUser?.role)
+  const canManageConcept2 = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
   const connectionGuidance = !canManageConcept2
     ? 'Tu perfil puede consultar los resultados. Un administrador o capitán debe conectar cuentas y recopilar datos.'
     : !memberId ? (selectedTraining ? 'Selecciona un integrante de la categoría del entrenamiento.' : 'Selecciona un integrante; puedes conectar su Logbook sin crear un entrenamiento primero.')
@@ -915,8 +917,8 @@ function Concept2View({ currentUser, onNavigate }) {
         <p className="concept2-action-hint" role="status">{connectionGuidance}</p>
         {message && <p className="ergdata-feedback" role="status">{message}</p>}
       </article>
-      {currentUser?.role === 'admin' && <article className="panel concept2-admin-overview">
-        <div className="panel-header"><div><p className="roster-kicker">VISTA DE ADMINISTRADOR</p><h2>ErgData por integrante</h2><p>Resumen de las cuentas y marcas importadas de todo el equipo.</p></div><span className="inventory-count">{teamConcept2Scores.length} marcas</span></div>
+      {['admin', 'capitan_general'].includes(currentUser?.role) && <article className="panel concept2-admin-overview">
+        <div className="panel-header"><div><p className="roster-kicker">VISTA GLOBAL</p><h2>ErgData por integrante</h2><p>Resumen de las cuentas y marcas importadas de todo el equipo.</p></div><span className="inventory-count">{teamConcept2Scores.length} marcas</span></div>
         <div className="concept2-admin-list">
           <div className="concept2-admin-row concept2-admin-head"><span>Integrante</span><span>Marcas</span><span>Última sesión</span><span>Resultado</span><span /></div>
           {concept2ByMember.map(({ member, count, latest }) => <div className="concept2-admin-row" key={member.id}>
@@ -994,7 +996,7 @@ function PhysicalMetricsView({ currentUser }) {
   const now = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const [form, setForm] = useState({ date: today, value: '', notes: '' })
-  const canEdit = ['admin', 'capitan'].includes(currentUser?.role)
+  const canEdit = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
   const metricChoices = ['Peso corporal', 'Porcentaje de grasa corporal', 'Frecuencia cardíaca en reposo', 'Flexibilidad', 'Salto vertical', 'Plancha', 'Flexiones', 'VO₂ máx', 'Perímetro de cintura', 'Otro']
   const metricUnits = { 'Peso corporal': 'kg', 'Porcentaje de grasa corporal': '%', 'Frecuencia cardíaca en reposo': 'lpm', Flexibilidad: 'cm', 'Salto vertical': 'cm', Plancha: 'seg', Flexiones: 'reps', 'VO₂ máx': 'ml/kg/min', 'Perímetro de cintura': 'cm' }
 
@@ -1167,7 +1169,7 @@ function GalleryView({ currentUser }) {
   const [error, setError] = useState('')
   const [form, setForm] = useState({ title: '', description: '', category: '', photoDate: '' })
   const [selectedPhoto, setSelectedPhoto] = useState(null)
-  const canManage = ['admin', 'capitan'].includes(currentUser?.role)
+  const canManage = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
 
   const loadPhotos = async () => {
     setLoading(true)
@@ -1601,7 +1603,8 @@ function FleetView() {
   </div>
 }
 
-function FinanceView() {
+function FinanceView({ currentUser }) {
+  const canManageFinance = ['admin', 'tesorero'].includes(currentUser?.role)
   const [transactions, setTransactions] = useStoredState('sky-dragons-finance', [])
   const [showForm, setShowForm] = useState(false)
   const [transaction, setTransaction] = useState({ type: 'Ingreso', category: 'Cuota mensual', description: '', amount: '', date: '', method: 'Efectivo' })
@@ -1629,10 +1632,11 @@ function FinanceView() {
         <article><div className="stat-icon coral"><ArrowDownRight size={21} /></div><div><span>Total gastos</span><strong>${expenses.toFixed(2)}</strong></div></article>
         <article className="balance-card"><div className="stat-icon green"><DollarSign size={21} /></div><div><span>Balance disponible</span><strong>${balance.toFixed(2)}</strong></div></article>
       </div>
+      {currentUser?.role === 'capitan_general' && <p className="read-only-notice">Finanzas está disponible para consulta; solo el tesorero puede registrar o modificar movimientos.</p>}
 
       <div className="finance-toolbar">
         <div><p className="roster-kicker">MOVIMIENTO FINANCIERO</p><h2>Pagos y gastos</h2></div>
-        <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> NUEVO MOVIMIENTO</button>
+        {canManageFinance && <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> NUEVO MOVIMIENTO</button>}
       </div>
 
       <article className="panel finance-panel">
@@ -1644,12 +1648,12 @@ function FinanceView() {
             <span>{entry.method}</span>
             <span>{entry.date || 'Sin fecha'}</span>
             <strong className={entry.type === 'Ingreso' ? 'amount income' : 'amount expense'}>{entry.type === 'Ingreso' ? '+' : '-'}${entry.amount.toFixed(2)}</strong>
-            <button className="icon-danger-button" aria-label="Borrar movimiento financiero" title="Borrar movimiento" onClick={() => deleteTransaction(entry)}><Trash2 size={15} /></button>
+            {canManageFinance && <button className="icon-danger-button" aria-label="Borrar movimiento financiero" title="Borrar movimiento" onClick={() => deleteTransaction(entry)}><Trash2 size={15} /></button>}
           </div>
-        )) : <div className="empty-state"><DollarSign size={30} /><p>No hay movimientos registrados.</p><button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> NUEVO MOVIMIENTO</button></div>}
+        )) : <div className="empty-state"><DollarSign size={30} /><p>No hay movimientos registrados.</p>{canManageFinance && <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> NUEVO MOVIMIENTO</button>}</div>}
       </article>
 
-      <FeeControlPanel />
+      <FeeControlPanel canManage={canManageFinance} />
 
       {showForm && (
         <div className="athlete-form-overlay"><div className="athlete-form-panel">
@@ -1669,7 +1673,7 @@ function FinanceView() {
   )
 }
 
-function FeeControlPanel() {
+function FeeControlPanel({ canManage }) {
   const [members, setMembers] = useState([])
   const [plans, setPlans] = useState([])
   const [payments, setPayments] = useState([])
@@ -1705,7 +1709,7 @@ function buildBoatSeats(boatType, rowerCount, previous = []) {
 }
 
 function LineupsView({ currentUser }) {
-  const canManage = ['admin', 'capitan'].includes(currentUser?.role)
+  const canManage = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
   const [category, setCategory] = useState('Open 1')
   const [boatName, setBoatName] = useState('Alineacion principal')
   const [boatType, setBoatType] = useState('DB12')
@@ -1921,7 +1925,7 @@ function LineupsView({ currentUser }) {
   )
 }
 function CalendarView({ currentUser }) {
-  const canEdit = ['admin', 'capitan'].includes(currentUser?.role)
+  const canEdit = ['admin', 'capitan', 'capitan_general'].includes(currentUser?.role)
   const [events, setEvents] = useStoredState('sky-dragons-calendar', [])
   const [members, setMembers] = useState([])
   const [trainingEvents, setTrainingEvents] = useState([])
@@ -2421,7 +2425,7 @@ function App() {
   if (!user || new URLSearchParams(window.location.search).has('resetToken')) return <LoginView onLogin={handleLogin} />
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-user-role={user.role}>
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="brand">
           <img className="brand-logo" src={skyDragonsLogo} alt="Sky Dragons" />
@@ -2430,7 +2434,7 @@ function App() {
         <nav className="nav-list">
           {nav.map(({ label, icon: Icon }) => {
             const readerBlocked = user.role === 'lector' && ['Inventario', 'Flota y reservas'].includes(label)
-            const locked = readerBlocked || (label === 'Finanzas' && !['admin', 'tesorero'].includes(user.role))
+            const locked = readerBlocked || (label === 'Finanzas' && !['admin', 'tesorero', 'capitan_general'].includes(user.role))
             const lockMessage = readerBlocked ? 'Sin acceso para lector' : 'Módulo restringido'
             return locked ? (
               <button key={label} className="nav-item locked" type="button" disabled title="No tienes permiso para entrar a este módulo." aria-label={`${label}. Restringido para tu rol.`}>
@@ -2468,7 +2472,7 @@ function App() {
         <section className="page">
           <div className="page-heading">
             <div><p className="eyebrow">TEMPORADA 2026 · SIN DATOS</p><h1>{active === 'Integrantes' ? 'Categorías y roster' : active === 'Entrenamientos' ? 'Programación de entrenamientos' : active === 'Concept2' ? 'Datos de ergómetro por sesión' : active === 'Métricas' ? 'Seguimiento físico por remero' : active === 'Competencias' ? 'Competiciones y medallero' : active === 'Inventario' ? 'Inventario del equipo' : active === 'Flota y reservas' ? 'Bitácora de flota y reservas' : active === 'Finanzas' ? 'Administración financiera' : active === 'Alineaciones' ? 'Alineación del bote' : active === 'Calendario' ? 'Calendario deportivo' : active === 'Galería' ? 'Galería de imágenes del equipo' : active === 'Reportes' ? 'Reportes de temporada' : active === 'Configuración' ? 'Configuración y usuarios' : 'Centro deportivo'}</h1></div>
-            <div className="heading-actions">{active === 'Centro deportivo' && <button className="demo-toggle" onClick={() => setDemoEnabled((current) => !current)}>{demoEnabled ? 'Quitar datos demo' : 'Cargar demo'}</button>}{['admin', 'capitan'].includes(user.role) && !['Métricas', 'Galería'].includes(active) && <button className="primary-button" onClick={() => setActive('Entrenamientos')}><Plus size={18} /> NUEVA ACTIVIDAD</button>}</div>
+            <div className="heading-actions">{active === 'Centro deportivo' && <button className="demo-toggle" onClick={() => setDemoEnabled((current) => !current)}>{demoEnabled ? 'Quitar datos demo' : 'Cargar demo'}</button>}{['admin', 'capitan', 'capitan_general'].includes(user.role) && !['Métricas', 'Galería'].includes(active) && <button className="primary-button" onClick={() => setActive('Entrenamientos')}><Plus size={18} /> NUEVA ACTIVIDAD</button>}</div>
           </div>
 
           {user ? (
@@ -2487,7 +2491,7 @@ function App() {
             ) : active === 'Flota y reservas' ? (
               <FleetView />
             ) : active === 'Finanzas' ? (
-              <FinanceView />
+              <FinanceView currentUser={user} />
             ) : active === 'Alineaciones' ? (
               <LineupsView currentUser={user} />
             ) : active === 'Calendario' ? (
@@ -2629,7 +2633,7 @@ function SettingsView({ currentUser }) {
         <div className="users-table-head"><span>Usuario</span><span>Correo</span><span>Rol</span><span>Estado</span><span>Acciones</span></div>
         <div className="users-table-row"><div className="member-name"><b style={{ background: '#ff6b3d' }}>{(currentUser.name || 'AD').split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{currentUser.name || 'Administrador'}</strong></div><span>{currentUser.email || 'Sesión actual'}</span><span className="role-badge admin">Administrador</span><span className="roster-status"><i /> Activo</span><span>Sesión actual</span></div>
         {users.map((item) => (
-        <div className="users-table-row" key={item.id}><div className="member-name"><b style={{ background: '#75a7ff' }}>{item.name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{item.name}</strong></div><span>{item.email}</span><label className="user-role-control"><span className="sr-only">Rol de {item.name}</span><select aria-label={`Cambiar rol de ${item.name}`} value={item.role} disabled={savingRoleUserId === item.id} onChange={(event) => changeUserRole(item, event.target.value)}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select>{item.role === 'capitan' && <select aria-label={`Roster de ${item.name}`} value={item.teamCategory || ''} disabled={savingRoleUserId === item.id} onChange={(event) => changeCaptainTeam(item, event.target.value)}><option value="" disabled>Asignar roster…</option>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select>}{savingRoleUserId === item.id && <small>Guardando…</small>}</label><span className={item.isApproved ? 'roster-status' : 'account-pending'}><i /> {item.isApproved ? 'Activo' : 'Pendiente'}</span><div className="user-actions">{item.role !== 'admin' && <button className={item.isApproved ? 'user-approval-button suspend' : 'user-approval-button'} onClick={() => toggleUserApproval(item)}>{item.isApproved ? 'Suspender' : 'Aprobar'}</button>}<button className="icon-danger-button" aria-label={`Borrar usuario ${item.name}`} title="Borrar usuario" onClick={() => deleteUser(item)}><Trash2 size={15} /></button></div></div>
+          <div className="users-table-row" key={item.id}><div className="member-name"><b style={{ background: '#75a7ff' }}>{item.name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{item.name}</strong></div><span>{item.email}</span><label className="user-role-control"><span className="sr-only">Rol de {item.name}</span><select aria-label={`Cambiar rol de ${item.name}`} value={item.role} disabled={savingRoleUserId === item.id} onChange={(event) => changeUserRole(item, event.target.value)}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="capitan_general">Capitán general</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select>{item.role === 'capitan' && <select aria-label={`Roster de ${item.name}`} value={item.teamCategory || ''} disabled={savingRoleUserId === item.id} onChange={(event) => changeCaptainTeam(item, event.target.value)}><option value="" disabled>Asignar roster…</option>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select>}{savingRoleUserId === item.id && <small>Guardando…</small>}</label><span className={item.isApproved ? 'roster-status' : 'account-pending'}><i /> {item.isApproved ? 'Activo' : 'Pendiente'}</span><div className="user-actions">{item.role !== 'admin' && <button className={item.isApproved ? 'user-approval-button suspend' : 'user-approval-button'} onClick={() => toggleUserApproval(item)}>{item.isApproved ? 'Suspender' : 'Aprobar'}</button>}<button className="icon-danger-button" aria-label={`Borrar usuario ${item.name}`} title="Borrar usuario" onClick={() => deleteUser(item)}><Trash2 size={15} /></button></div></div>
         ))}
       </article>
 
@@ -2640,7 +2644,7 @@ function SettingsView({ currentUser }) {
             <label><span>Nombre</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span>Correo electrónico</span><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
             <label><span>Contraseña temporal (mínimo 12 caracteres)</span><input type="password" minLength="12" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
-            <label><span>Rol</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, teamCategory: event.target.value === 'capitan' ? form.teamCategory : '' })}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select></label>
+            <label><span>Rol</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, teamCategory: event.target.value === 'capitan' ? form.teamCategory : '' })}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="capitan_general">Capitán general</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select></label>
             {form.role === 'capitan' && <label><span>Roster asignado</span><select required value={form.teamCategory} onChange={(event) => setForm({ ...form, teamCategory: event.target.value })}><option value="">Seleccionar roster</option>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select></label>}
             <label className="full-form-field"><span>ID de integrante (opcional)</span><input type="number" min="1" value={form.memberId} onChange={(event) => setForm({ ...form, memberId: event.target.value })} /></label>
             <div className="form-actions"><button type="button" className="outline-button" onClick={() => setShowForm(false)}>Cancelar</button><button type="submit" className="primary-button">Crear usuario</button></div>

@@ -156,8 +156,9 @@ api.use(authenticate);
 api.use(special);
 api.use('/ergdata', ergdata.protectedRouter);
 
-const equipo = ['capitan'];
+const equipo = ['capitan', 'capitan_general'];
 const finanzas = ['tesorero'];
+const finanzasRead = ['tesorero', 'capitan_general'];
 
 api.get('/members/:id/health', allow(...equipo), async (req, res, next) => {
   try {
@@ -179,9 +180,9 @@ api.put('/members/:id/health', allow(...equipo), async (req, res, next) => {
 const canManageMemberPhoto = async (req, res, next) => {
   try {
     if (req.user.role === 'admin' || Number(req.user.memberId) === Number(req.params.id)) return next();
-    if (req.user.role === 'capitan' && req.user.teamCategory) {
+    if (['capitan', 'capitan_general'].includes(req.user.role) && (req.user.role === 'capitan_general' || req.user.teamCategory)) {
       const member = await M.Member.findByPk(req.params.id, { attributes: ['id', 'category'] });
-      if (member && member.category === req.user.teamCategory) return next();
+      if (member && (req.user.role === 'capitan_general' || member.category === req.user.teamCategory)) return next();
     }
     res.status(403).json({ error: 'Solo el remero vinculado, el capitán de su roster o un administrador puede cambiar esta foto.' });
   } catch (error) { next(error); }
@@ -237,7 +238,7 @@ api.put('/races/:id', allow(...equipo), async (req, res, next) => {
   } catch (error) { next(error); }
 });
 api.use('/races', crud(M.Race, { write: equipo, include: [M.Competition, { model: M.Lineup, as: 'lineups', include: [{ model: M.LineupSeat, as: 'seats', include: [M.Member] }] }], exclude: ['medalPhoto'] }));
-api.post('/races/:id/medal-photo', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' }), async (req, res, next) => {
+api.post('/races/:id/medal-photo', allow('capitan', 'capitan_general'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' }), async (req, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecciona una foto JPG, PNG o WebP.' });
     const race = await M.Race.findByPk(req.params.id);
@@ -257,7 +258,7 @@ api.get('/races/:id/medal-photo', async (req, res, next) => {
     res.send(race.medalPhoto);
   } catch (error) { next(error); }
 });
-api.delete('/races/:id/medal-photo', allow('capitan'), async (req, res, next) => {
+api.delete('/races/:id/medal-photo', allow('capitan', 'capitan_general'), async (req, res, next) => {
   try {
     const race = await M.Race.findByPk(req.params.id);
     if (!race) return res.status(404).json({ error: 'Resultado no encontrado.' });
@@ -275,7 +276,7 @@ api.get('/gallery', async (req, res, next) => {
     res.json({ data: photos });
   } catch (error) { next(error); }
 });
-api.post('/gallery', allow('capitan'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' }), async (req, res, next) => {
+api.post('/gallery', allow('capitan', 'capitan_general'), express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '15mb' }), async (req, res, next) => {
   try {
     if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecciona una foto JPG, PNG o WebP.' });
     const title = String(req.query.title || '').trim().slice(0, 160);
@@ -304,7 +305,7 @@ api.get('/gallery/:id/image', async (req, res, next) => {
     res.send(photo.image);
   } catch (error) { next(error); }
 });
-api.delete('/gallery/:id', allow('capitan'), async (req, res, next) => {
+api.delete('/gallery/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   try {
     const photo = await M.GalleryPhoto.findByPk(req.params.id);
     if (!photo) return res.status(404).json({ error: 'La foto no existe.' });
@@ -314,18 +315,18 @@ api.delete('/gallery/:id', allow('capitan'), async (req, res, next) => {
 });
 api.use('/lineups', crud(M.Lineup, { write: equipo, include: [{ model: M.LineupSeat, as: 'seats' }] }));
 api.use('/lineup-seats', crud(M.LineupSeat, { write: equipo, include: [M.Member] }));
-api.use('/fee-plans', crud(M.FeePlan, { read: finanzas, write: finanzas }));
-api.use('/payments', crud(M.Payment, { read: finanzas, write: finanzas, include: [M.Member, M.FeePlan] }));
-api.use('/expenses', crud(M.Expense, { read: finanzas, write: finanzas }));
+api.use('/fee-plans', crud(M.FeePlan, { read: finanzasRead, write: finanzas }));
+api.use('/payments', crud(M.Payment, { read: finanzasRead, write: finanzas, include: [M.Member, M.FeePlan] }));
+api.use('/expenses', crud(M.Expense, { read: finanzasRead, write: finanzas }));
 api.use('/sponsors', crud(M.Sponsor, { read: [...finanzas, ...equipo], write: finanzas,
   include: [{ model: M.SponsorContribution, as: 'contributions' }] }));
-api.use('/sponsor-contributions', crud(M.SponsorContribution, { read: finanzas, write: finanzas }));
-api.use('/inventory-items', crud(M.InventoryItem, { read: ['capitan', 'tesorero'], write: equipo }));
-api.use('/inventory-assignments', crud(M.InventoryAssignment, { read: ['capitan', 'tesorero'], write: equipo, include: [M.InventoryItem, M.Member] }));
-api.use('/fleet-assets', crud(M.FleetAsset, { read: ['capitan', 'tesorero'], write: equipo }));
-api.use('/fleet-maintenance', crud(M.FleetMaintenance, { read: ['capitan', 'tesorero'], write: equipo, include: [M.FleetAsset] }));
+api.use('/sponsor-contributions', crud(M.SponsorContribution, { read: finanzasRead, write: finanzas }));
+api.use('/inventory-items', crud(M.InventoryItem, { read: ['capitan', 'capitan_general', 'tesorero'], write: equipo }));
+api.use('/inventory-assignments', crud(M.InventoryAssignment, { read: ['capitan', 'capitan_general', 'tesorero'], write: equipo, include: [M.InventoryItem, M.Member] }));
+api.use('/fleet-assets', crud(M.FleetAsset, { read: ['capitan', 'capitan_general', 'tesorero'], write: equipo }));
+api.use('/fleet-maintenance', crud(M.FleetMaintenance, { read: ['capitan', 'capitan_general', 'tesorero'], write: equipo, include: [M.FleetAsset] }));
 api.get('/fleet-bookings', async (req, res, next) => {
-  if (!['admin', 'capitan', 'tesorero'].includes(req.user.role)) return res.status(403).json({ error: 'No tienes permiso para consultar la flota.' });
+  if (!['admin', 'capitan', 'capitan_general', 'tesorero'].includes(req.user.role)) return res.status(403).json({ error: 'No tienes permiso para consultar la flota.' });
   try {
     const where = {};
     if (req.query.assetId) where.assetId = req.query.assetId;
@@ -333,7 +334,7 @@ api.get('/fleet-bookings', async (req, res, next) => {
     res.json(await M.FleetBooking.findAll({ where, include: [M.FleetAsset, M.Member], order: [['date', 'ASC'], ['startTime', 'ASC']] }));
   } catch (error) { next(error); }
 });
-api.post('/fleet-bookings', allow('capitan'), async (req, res, next) => {
+api.post('/fleet-bookings', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     const { assetId, memberId, date, startTime, endTime, purpose, notes } = req.body || {};
@@ -356,7 +357,7 @@ api.post('/fleet-bookings', allow('capitan'), async (req, res, next) => {
     res.status(201).json(await M.FleetBooking.findByPk(booking.id, { include: [M.FleetAsset, M.Member] }));
   } catch (error) { if (transaction && !transaction.finished) await transaction.rollback(); next(error); }
 });
-api.put('/fleet-bookings/:id', allow('capitan'), async (req, res, next) => {
+api.put('/fleet-bookings/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   try {
     const booking = await M.FleetBooking.findByPk(req.params.id);
     if (!booking) return res.status(404).json({ error: 'Reserva no encontrada.' });
@@ -365,7 +366,7 @@ api.put('/fleet-bookings/:id', allow('capitan'), async (req, res, next) => {
     res.json(await M.FleetBooking.findByPk(booking.id, { include: [M.FleetAsset, M.Member] }));
   } catch (error) { next(error); }
 });
-api.delete('/fleet-bookings/:id', allow('capitan'), async (req, res, next) => {
+api.delete('/fleet-bookings/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   try {
     const booking = await M.FleetBooking.findByPk(req.params.id);
     if (!booking) return res.status(404).json({ error: 'Reserva no encontrada.' });

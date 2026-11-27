@@ -18,6 +18,17 @@ async function ensureCaptainRosterSchema() {
   }
 }
 
+async function ensureCaptainGeneralRole() {
+  const [columns] = await sequelize.query("SHOW COLUMNS FROM `Users` LIKE 'role'");
+  const roleType = columns[0]?.Type || '';
+  if (roleType.includes('capitan_general')) return;
+  await sequelize.getQueryInterface().changeColumn('Users', 'role', {
+    type: DataTypes.ENUM('admin', 'capitan', 'capitan_general', 'tesorero', 'lector'),
+    defaultValue: 'lector',
+  });
+  console.log('Esquema actualizado: rol capitan_general');
+}
+
 function validateEnvironment() {
   const required = ['JWT_SECRET', 'DB_NAME', 'DB_USER', 'DB_PASS'];
   const missing = required.filter((key) => !process.env[key]);
@@ -32,6 +43,7 @@ async function start() {
   validateEnvironment();
   await sequelize.authenticate();
   await ensureCaptainRosterSchema();
+  await ensureCaptainGeneralRole();
 
   if (process.env.NODE_ENV !== 'production') {
     await sequelize.sync({ alter: true });

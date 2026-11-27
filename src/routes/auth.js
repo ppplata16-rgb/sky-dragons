@@ -18,7 +18,7 @@ const registerSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(12).max(72),
-  role: z.enum(['admin', 'capitan', 'tesorero', 'lector']).default('lector'),
+  role: z.enum(['admin', 'capitan', 'capitan_general', 'tesorero', 'lector']).default('lector'),
   memberId: z.coerce.number().int().positive().nullable().optional(),
   teamCategory: z.enum(['Open 1', 'Open 2', 'Master', 'Femenino', 'Mixta', 'Rookie']).nullable().optional(),
 });
@@ -172,7 +172,7 @@ router.get('/users', authenticate, allow(), async (req, res, next) => {
 router.put('/users/:id/role', authenticate, allow(), async (req, res, next) => {
   try {
     const role = req.body?.role;
-    if (!['admin', 'capitan', 'tesorero', 'lector'].includes(role)) {
+    if (!['admin', 'capitan', 'capitan_general', 'tesorero', 'lector'].includes(role)) {
       return res.status(400).json({ error: 'Elige un rol válido para el usuario.' });
     }
     const user = await User.findByPk(req.params.id);

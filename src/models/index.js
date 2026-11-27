@@ -6,7 +6,7 @@ const User = sequelize.define('User', {
   name: { type: T.STRING(120), allowNull: false },
   email: { type: T.STRING(160), allowNull: false, unique: true },
   passwordHash: { type: T.STRING(100), allowNull: false },
-  role: { type: T.ENUM('admin', 'capitan', 'tesorero', 'lector'), defaultValue: 'lector' },
+  role: { type: T.ENUM('admin', 'capitan', 'capitan_general', 'tesorero', 'lector'), defaultValue: 'lector' },
   memberId: { type: T.INTEGER, allowNull: true },
   teamCategory: { type: T.STRING(30), allowNull: true },
   isApproved: { type: T.BOOLEAN, allowNull: false, defaultValue: true },

@@ -9,7 +9,7 @@ const { allow } = require('../middleware/auth');
 const router = express.Router();
 
 // Save a complete, validated practice or race lineup atomically.
-router.post('/lineups', allow('capitan'), async (req, res, next) => {
+router.post('/lineups', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     transaction = await Lineup.sequelize.transaction();
@@ -61,7 +61,7 @@ router.post('/lineups', allow('capitan'), async (req, res, next) => {
   }
 });
 
-router.post('/competitions/with-result', allow('capitan'), async (req, res, next) => {
+router.post('/competitions/with-result', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     transaction = await Competition.sequelize.transaction();
@@ -85,7 +85,7 @@ router.post('/competitions/with-result', allow('capitan'), async (req, res, next
   }
 });
 
-router.delete('/trainings/:id', allow('capitan'), async (req, res, next) => {
+router.delete('/trainings/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     transaction = await Training.sequelize.transaction();
@@ -98,7 +98,7 @@ router.delete('/trainings/:id', allow('capitan'), async (req, res, next) => {
   } catch (e) { if (transaction) await transaction.rollback(); next(e); }
 });
 
-router.delete('/lineups/:id', allow('capitan'), async (req, res, next) => {
+router.delete('/lineups/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     transaction = await Lineup.sequelize.transaction();
@@ -111,7 +111,7 @@ router.delete('/lineups/:id', allow('capitan'), async (req, res, next) => {
   } catch (e) { if (transaction) await transaction.rollback(); next(e); }
 });
 
-router.delete('/races/:id', allow('capitan'), async (req, res, next) => {
+router.delete('/races/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     transaction = await Race.sequelize.transaction();
@@ -129,7 +129,7 @@ router.delete('/races/:id', allow('capitan'), async (req, res, next) => {
   } catch (e) { if (transaction) await transaction.rollback(); next(e); }
 });
 
-router.delete('/competitions/:id', allow('capitan'), async (req, res, next) => {
+router.delete('/competitions/:id', allow('capitan', 'capitan_general'), async (req, res, next) => {
   let transaction;
   try {
     transaction = await Competition.sequelize.transaction();
@@ -156,7 +156,7 @@ router.delete('/competitions/:id', allow('capitan'), async (req, res, next) => {
 
 // --- Pasar lista de un entrenamiento en bloque ---
 // POST /api/trainings/:id/attendance   body: [{ memberId, status, reason }]
-router.post('/trainings/:id/attendance', allow('capitan'), async (req, res, next) => {
+router.post('/trainings/:id/attendance', allow('capitan', 'capitan_general'), async (req, res, next) => {
   try {
     const training = await Training.findByPk(req.params.id);
     if (!training) return res.status(404).json({ error: 'Entrenamiento no encontrado' });
@@ -314,7 +314,7 @@ router.get('/reports/attendance', async (req, res, next) => {
 
 // --- Resumen financiero ---
 // GET /api/reports/finance
-router.get('/reports/finance', allow('tesorero'), async (req, res, next) => {
+router.get('/reports/finance', allow('tesorero', 'capitan_general'), async (req, res, next) => {
   try {
     const [cobrado, pendiente, gastos, aportes] = await Promise.all([
       Payment.sum('amount', { where: { status: 'pagado' } }),
@@ -335,7 +335,7 @@ router.get('/reports/finance', allow('tesorero'), async (req, res, next) => {
 
 // --- Estado de cuenta de un integrante ---
 // GET /api/reports/member-account/:memberId
-router.get('/reports/member-account/:memberId', allow('tesorero'), async (req, res, next) => {
+router.get('/reports/member-account/:memberId', allow('tesorero', 'capitan_general'), async (req, res, next) => {
   try {
     const payments = await Payment.findAll({
       where: { memberId: req.params.memberId }, include: [FeePlan], order: [['id', 'DESC']],
