@@ -1,7 +1,22 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
+const { DataTypes } = require('sequelize');
 const app = require('./app');
 const { sequelize, User } = require('./models');
+
+async function ensureCaptainRosterSchema() {
+  const [columns] = await sequelize.query("SHOW COLUMNS FROM `Users` LIKE 'teamCategory'");
+  if (columns.length) return;
+  try {
+    await sequelize.getQueryInterface().addColumn('Users', 'teamCategory', {
+      type: DataTypes.STRING(30),
+      allowNull: true,
+    });
+    console.log('Esquema actualizado: Users.teamCategory');
+  } catch (error) {
+    if (error.original?.code !== 'ER_DUP_FIELDNAME') throw error;
+  }
+}
 
 function validateEnvironment() {
   const required = ['JWT_SECRET', 'DB_NAME', 'DB_USER', 'DB_PASS'];
@@ -16,6 +31,7 @@ function validateEnvironment() {
 async function start() {
   validateEnvironment();
   await sequelize.authenticate();
+  await ensureCaptainRosterSchema();
 
   if (process.env.NODE_ENV !== 'production') {
     await sequelize.sync({ alter: true });
