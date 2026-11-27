@@ -9,7 +9,7 @@ async function authenticate(req, res, next) {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(payload.id, {
-      attributes: ['id', 'name', 'role', 'memberId', 'isApproved'],
+      attributes: ['id', 'name', 'role', 'memberId', 'teamCategory', 'isApproved'],
     });
     if (!user) return res.status(401).json({ error: 'Usuario inexistente' });
     if (!user.isApproved) return res.status(403).json({ error: 'Tu cuenta está pendiente de aprobación por el administrador.' });
@@ -18,6 +18,7 @@ async function authenticate(req, res, next) {
       name: user.name,
       role: user.role,
       memberId: user.memberId,
+      teamCategory: user.teamCategory,
     };
     next();
   } catch (error) {

@@ -161,8 +161,9 @@ const finanzas = ['tesorero'];
 
 api.get('/members/:id/health', allow(...equipo), async (req, res, next) => {
   try {
-    const member = await M.Member.findByPk(req.params.id, { attributes: ['id', 'allergies', 'medicalNotes', 'medicalClearanceUntil'] });
+    const member = await M.Member.findByPk(req.params.id, { attributes: ['id', 'category', 'allergies', 'medicalNotes', 'medicalClearanceUntil'] });
     if (!member) return res.status(404).json({ error: 'Integrante no encontrado.' });
+    if (req.user.role === 'capitan' && (!req.user.teamCategory || member.category !== req.user.teamCategory)) return res.status(403).json({ error: 'Este integrante no pertenece a tu roster.' });
     res.json(member);
   } catch (error) { next(error); }
 });
@@ -170,13 +171,20 @@ api.put('/members/:id/health', allow(...equipo), async (req, res, next) => {
   try {
     const member = await M.Member.findByPk(req.params.id);
     if (!member) return res.status(404).json({ error: 'Integrante no encontrado.' });
+    if (req.user.role === 'capitan' && (!req.user.teamCategory || member.category !== req.user.teamCategory)) return res.status(403).json({ error: 'Este integrante no pertenece a tu roster.' });
     await member.update({ allergies: req.body?.allergies || null, medicalNotes: req.body?.medicalNotes || null, medicalClearanceUntil: req.body?.medicalClearanceUntil || null });
     res.json({ id: member.id, saved: true });
   } catch (error) { next(error); }
 });
-const canManageMemberPhoto = (req, res, next) => {
-  if (req.user.role === 'admin' || req.user.role === 'capitan' || Number(req.user.memberId) === Number(req.params.id)) return next();
-  res.status(403).json({ error: 'Solo el remero vinculado, un capitán o un administrador puede cambiar esta foto.' });
+const canManageMemberPhoto = async (req, res, next) => {
+  try {
+    if (req.user.role === 'admin' || Number(req.user.memberId) === Number(req.params.id)) return next();
+    if (req.user.role === 'capitan' && req.user.teamCategory) {
+      const member = await M.Member.findByPk(req.params.id, { attributes: ['id', 'category'] });
+      if (member && member.category === req.user.teamCategory) return next();
+    }
+    res.status(403).json({ error: 'Solo el remero vinculado, el capitán de su roster o un administrador puede cambiar esta foto.' });
+  } catch (error) { next(error); }
 };
 api.post('/members/:id/profile-photo', canManageMemberPhoto, express.raw({ type: ['image/jpeg', 'image/png', 'image/webp'], limit: '5mb' }), async (req, res, next) => {
   try {
@@ -189,8 +197,9 @@ api.post('/members/:id/profile-photo', canManageMemberPhoto, express.raw({ type:
 });
 api.get('/members/:id/profile-photo', async (req, res, next) => {
   try {
-    const member = await M.Member.findByPk(req.params.id, { attributes: ['id', 'profilePhoto', 'profilePhotoType'] });
+    const member = await M.Member.findByPk(req.params.id, { attributes: ['id', 'category', 'profilePhoto', 'profilePhotoType'] });
     if (!member?.profilePhoto) return res.status(404).json({ error: 'Este integrante no tiene foto de perfil.' });
+    if (req.user.role === 'capitan' && (!req.user.teamCategory || member.category !== req.user.teamCategory)) return res.status(403).json({ error: 'Este integrante no pertenece a tu roster.' });
     res.set('Content-Type', member.profilePhotoType || 'image/jpeg');
     res.set('Cache-Control', 'private, max-age=3600');
     res.set('X-Content-Type-Options', 'nosniff');
@@ -205,7 +214,11 @@ api.delete('/members/:id/profile-photo', canManageMemberPhoto, async (req, res, 
     res.status(204).end();
   } catch (error) { next(error); }
 });
-api.use('/members', crud(M.Member, { write: equipo, exclude: ['allergies', 'medicalNotes', 'medicalClearanceUntil', 'profilePhoto', 'profilePhotoType'] }));
+api.use('/members', crud(M.Member, {
+  write: equipo,
+  scope: (req) => req.user.role === 'capitan' ? (req.user.teamCategory ? { category: req.user.teamCategory } : false) : null,
+  exclude: ['allergies', 'medicalNotes', 'medicalClearanceUntil', 'profilePhoto', 'profilePhotoType'],
+}));
 api.use('/trainings', crud(M.Training, { write: equipo }));
 api.use('/attendances', crud(M.Attendance, { write: equipo, include: [M.Member, M.Training] }));
 api.use('/erg-scores', crud(M.ErgScore, { write: equipo, include: [M.Member] }));

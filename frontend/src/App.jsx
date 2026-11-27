@@ -153,7 +153,11 @@ async function fetchAllRows(path, pageSize = 500) {
 }
 
 function RosterView({ currentUser }) {
-  const [selectedCategory, setSelectedCategory] = useStoredState('selectedCategory', 'Open 1')
+  const [selectedCategory, setSelectedCategory] = useStoredState('selectedCategory', currentUser?.teamCategory || 'Open 1')
+  const isCaptain = currentUser?.role === 'capitan'
+  const canManageRoster = ['admin', 'capitan'].includes(currentUser?.role)
+  const activeCategory = isCaptain ? (currentUser.teamCategory || '') : selectedCategory
+  const rosterCategories = isCaptain ? (currentUser.teamCategory ? [currentUser.teamCategory] : []) : Object.keys(categoryRosters)
   const [rosters, setRosters] = useState(categoryRosters)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -173,7 +177,7 @@ function RosterView({ currentUser }) {
   const [healthSaving, setHealthSaving] = useState(false)
   const [healthMessage, setHealthMessage] = useState('')
   const [athlete, setAthlete] = useState({ name: '', role: 'Remero', side: 'Ambos', status: 'Titular', birthDate: '', weightKg: '', heightCm: '', emergencyContactName: '', emergencyContactPhone: '' })
-  const roster = rosters[selectedCategory] || []
+  const roster = rosters[activeCategory] || []
 
   const loadMembers = async () => {
     setLoading(true)
@@ -293,7 +297,7 @@ function RosterView({ currentUser }) {
     const newAthlete = {
       firstName,
       lastName: rest.join(' '),
-      category: selectedCategory,
+      category: activeCategory,
       role: ({ Remero: 'remero', Timonel: 'timonel', Tamborilero: 'tamborilero', Suplente: 'suplente', Staff: 'staff' })[athlete.role] || 'remero',
       rowingSide: athlete.side === 'Izquierdo' ? 'izquierdo' : athlete.side === 'Derecho' ? 'derecho' : 'ambos',
       status: athlete.status === 'Suplente' || athlete.role === 'Suplente' ? 'inactivo' : 'activo',
@@ -331,7 +335,7 @@ function RosterView({ currentUser }) {
 
   const openMemberEditor = (person) => {
     setMemberEditForm({
-      firstName: person.firstName || '', lastName: person.lastName || '', category: person.category || selectedCategory,
+      firstName: person.firstName || '', lastName: person.lastName || '', category: person.category || activeCategory,
       role: person.rawRole || 'remero', status: person.rawStatus || 'activo', rowingSide: person.side === 'Izquierdo' ? 'izquierdo' : person.side === 'Derecho' ? 'derecho' : 'ambos',
       birthDate: person.birthDate || '', weightKg: person.weightKg || '', heightCm: person.heightCm || '', email: person.email || '', phone: person.phone || '',
       biography: person.biography || '', palmares: person.palmares || '', rowingTeams: person.rowingTeams || '',
@@ -368,12 +372,12 @@ function RosterView({ currentUser }) {
   return (
     <div className="roster-view">
       <div className="category-tabs" role="tablist" aria-label="Categorías del equipo">
-        {Object.keys(categoryRosters).map((category) => (
+        {rosterCategories.map((category) => (
           <button
             key={category}
             role="tab"
-            aria-selected={selectedCategory === category}
-            className={selectedCategory === category ? 'category-tab active' : 'category-tab'}
+            aria-selected={activeCategory === category}
+            className={activeCategory === category ? 'category-tab active' : 'category-tab'}
             onClick={() => setSelectedCategory(category)}
           >
             <span>{category}</span>
@@ -384,11 +388,12 @@ function RosterView({ currentUser }) {
 
       <article className="panel roster-panel">
         <div className="panel-header roster-header">
-          <div><p className="roster-kicker">ROSTER 2026</p><h2>{selectedCategory}</h2></div>
-          <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> AGREGAR ATLETA</button>
+          <div><p className="roster-kicker">ROSTER 2026</p><h2>{activeCategory || 'Sin roster asignado'}</h2></div>
+          {canManageRoster && activeCategory && <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={17} /> AGREGAR ATLETA</button>}
         </div>
 
         {error && <p className="login-error" role="alert">{error}</p>}
+        {isCaptain && !activeCategory && <p className="read-only-notice">Pide al administrador que te asigne un roster para poder gestionarlo.</p>}
 
         <div className="roster-summary">
           <div><span>Integrantes</span><strong>{roster.length}</strong></div>
@@ -409,7 +414,7 @@ function RosterView({ currentUser }) {
                 <span className="roster-role">{person.role}</span>
                 <span className="roster-side">{person.side || 'Ambos'}</span>
                 <span className={person.status === 'Titular' ? 'roster-status' : 'roster-status reserve'}><i /> {person.status}</span>
-                <div className="roster-actions"><button aria-label={`Editar ficha de ${person.name}`} title="Editar ficha y disponibilidad" onClick={() => openMemberEditor(person)}><Pencil size={15} /></button><button aria-label={`Ver perfil de ${person.name}`} title="Ver ficha deportiva" onClick={() => setSelectedAthlete(person)}><MoreHorizontal size={18} /></button><button className="icon-danger-button" aria-label={`Borrar ${person.name}`} title="Borrar integrante" onClick={() => deleteAthlete(person)}><Trash2 size={16} /></button></div>
+                <div className="roster-actions">{canManageRoster && <button aria-label={`Editar ficha de ${person.name}`} title="Editar ficha y disponibilidad" onClick={() => openMemberEditor(person)}><Pencil size={15} /></button>}<button aria-label={`Ver perfil de ${person.name}`} title="Ver ficha deportiva" onClick={() => setSelectedAthlete(person)}><MoreHorizontal size={18} /></button>{canManageRoster && <button className="icon-danger-button" aria-label={`Borrar ${person.name}`} title="Borrar integrante" onClick={() => deleteAthlete(person)}><Trash2 size={16} /></button>}</div>
               </div>
             ))
           ) : (
@@ -481,7 +486,7 @@ function RosterView({ currentUser }) {
         <form className="athlete-form" onSubmit={saveMember}>
           <label><span>Nombre</span><input required value={memberEditForm.firstName || ''} onChange={(event) => setMemberEditForm({ ...memberEditForm, firstName: event.target.value })} /></label>
           <label><span>Apellido</span><input required value={memberEditForm.lastName || ''} onChange={(event) => setMemberEditForm({ ...memberEditForm, lastName: event.target.value })} /></label>
-          <label><span>Categoría</span><select value={memberEditForm.category || selectedCategory} onChange={(event) => setMemberEditForm({ ...memberEditForm, category: event.target.value })}>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select></label>
+          <label><span>Roster</span>{isCaptain ? <input value={activeCategory} disabled /> : <select value={memberEditForm.category || activeCategory} onChange={(event) => setMemberEditForm({ ...memberEditForm, category: event.target.value })}>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select>}</label>
           <label><span>Posición</span><select value={memberEditForm.role || 'remero'} onChange={(event) => setMemberEditForm({ ...memberEditForm, role: event.target.value })}><option value="remero">Remero</option><option value="timonel">Timonel</option><option value="tamborilero">Tamborilero</option><option value="suplente">Suplente</option><option value="staff">Staff</option></select></label>
           <label><span>Lado de remada</span><select value={memberEditForm.rowingSide || 'ambos'} onChange={(event) => setMemberEditForm({ ...memberEditForm, rowingSide: event.target.value })}><option value="ambos">Ambos</option><option value="izquierdo">Izquierdo</option><option value="derecho">Derecho</option></select></label>
           <label><span>Estado</span><select value={memberEditForm.status || 'activo'} onChange={(event) => setMemberEditForm({ ...memberEditForm, status: event.target.value })}><option value="activo">Activo</option><option value="inactivo">Inactivo</option></select></label>
@@ -509,7 +514,7 @@ function RosterView({ currentUser }) {
       {selectedAthlete && <div className="athlete-form-overlay" onClick={() => setSelectedAthlete(null)}><article className="athlete-form-panel athlete-profile-card" onClick={(event) => event.stopPropagation()}>
         <div className="sport-passport-book">
         <div className="sport-passport-topline"><div><Waves size={18} /><span>SKY DRAGONS <small>PASAPORTE DEPORTIVO</small></span></div><span className="sport-passport-season">TEMPORADA 2026</span></div>
-        <div className="athlete-profile-titlebar"><div className="athlete-profile-identity"><div className="athlete-profile-photo">{profilePhotoUrl ? <img src={profilePhotoUrl} alt={`Foto de ${selectedAthlete.name}`} /> : <span>{selectedAthlete.initials}</span>}</div><div><p className="roster-kicker">IDENTIFICACIÓN DEL REMERO</p><h2>{selectedAthlete.name}</h2><span>{selectedAthlete.category || selectedCategory} · {selectedAthlete.side}</span></div></div><div className="athlete-profile-actions">{canManageProfilePhoto && <label className="profile-photo-upload">{profilePhotoUploading ? 'Subiendo…' : profilePhotoUrl ? 'Cambiar foto' : 'Agregar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={profilePhotoUploading} onChange={uploadProfilePhoto} /></label>}{canManageProfilePhoto && profilePhotoUrl && <button className="profile-photo-remove" disabled={profilePhotoUploading} onClick={removeProfilePhoto}>Quitar</button>}<button className="profile-edit-button" onClick={() => openMemberEditor(selectedAthlete)}><Pencil size={14} /> EDITAR FICHA</button><button className="close-button" onClick={() => setSelectedAthlete(null)}>×</button></div></div>
+        <div className="athlete-profile-titlebar"><div className="athlete-profile-identity"><div className="athlete-profile-photo">{profilePhotoUrl ? <img src={profilePhotoUrl} alt={`Foto de ${selectedAthlete.name}`} /> : <span>{selectedAthlete.initials}</span>}</div><div><p className="roster-kicker">IDENTIFICACIÓN DEL REMERO</p><h2>{selectedAthlete.name}</h2><span>{selectedAthlete.category || activeCategory} · {selectedAthlete.side}</span></div></div><div className="athlete-profile-actions">{canManageProfilePhoto && <label className="profile-photo-upload">{profilePhotoUploading ? 'Subiendo…' : profilePhotoUrl ? 'Cambiar foto' : 'Agregar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={profilePhotoUploading} onChange={uploadProfilePhoto} /></label>}{canManageProfilePhoto && profilePhotoUrl && <button className="profile-photo-remove" disabled={profilePhotoUploading} onClick={removeProfilePhoto}>Quitar</button>}{canManageRoster && <button className="profile-edit-button" onClick={() => openMemberEditor(selectedAthlete)}><Pencil size={14} /> EDITAR FICHA</button>}<button className="close-button" onClick={() => setSelectedAthlete(null)}>×</button></div></div>
         {profilePhotoError && <p className="profile-photo-error" role="alert">{profilePhotoError}</p>}
         <div className="sport-passport-number"><span>FICHA INTERNA</span><strong>{selectedAthlete.number || selectedAthlete.id}</strong></div>
         <div className="athlete-profile-grid sport-passport-grid">
@@ -2489,7 +2494,7 @@ function SettingsView({ currentUser }) {
   const [users, setUsers] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [savingRoleUserId, setSavingRoleUserId] = useState(null)
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'lector', memberId: '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'lector', memberId: '', teamCategory: '' })
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -2506,10 +2511,11 @@ function SettingsView({ currentUser }) {
         body: JSON.stringify({
           ...form,
           memberId: form.memberId ? Number(form.memberId) : null,
+          teamCategory: form.role === 'capitan' ? form.teamCategory || null : null,
         }),
       })
       setUsers((current) => [...current, created])
-      setForm({ name: '', email: '', password: '', role: 'lector', memberId: '' })
+      setForm({ name: '', email: '', password: '', role: 'lector', memberId: '', teamCategory: '' })
       setShowForm(false)
       setMessage('Usuario creado correctamente')
     } catch (error) {
@@ -2539,9 +2545,19 @@ function SettingsView({ currentUser }) {
     if (role === item.role) return
     setSavingRoleUserId(item.id)
     try {
-      const updated = await apiRequest(`/api/auth/users/${item.id}/role`, { method: 'PUT', body: JSON.stringify({ role }) })
+      const updated = await apiRequest(`/api/auth/users/${item.id}/role`, { method: 'PUT', body: JSON.stringify({ role, teamCategory: role === 'capitan' ? item.teamCategory || null : null }) })
       setUsers((current) => current.map((userItem) => userItem.id === item.id ? updated : userItem))
       setMessage(`Rol de ${item.name} actualizado correctamente`)
+    } catch (error) { setMessage(error.message) }
+    finally { setSavingRoleUserId(null) }
+  }
+
+  const changeCaptainTeam = async (item, teamCategory) => {
+    setSavingRoleUserId(item.id)
+    try {
+      const updated = await apiRequest(`/api/auth/users/${item.id}/team`, { method: 'PUT', body: JSON.stringify({ teamCategory }) })
+      setUsers((current) => current.map((userItem) => userItem.id === item.id ? updated : userItem))
+      setMessage(`Roster de ${item.name} actualizado correctamente`)
     } catch (error) { setMessage(error.message) }
     finally { setSavingRoleUserId(null) }
   }
@@ -2593,7 +2609,7 @@ function SettingsView({ currentUser }) {
         <div className="users-table-head"><span>Usuario</span><span>Correo</span><span>Rol</span><span>Estado</span><span>Acciones</span></div>
         <div className="users-table-row"><div className="member-name"><b style={{ background: '#ff6b3d' }}>{(currentUser.name || 'AD').split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{currentUser.name || 'Administrador'}</strong></div><span>{currentUser.email || 'Sesión actual'}</span><span className="role-badge admin">Administrador</span><span className="roster-status"><i /> Activo</span><span>Sesión actual</span></div>
         {users.map((item) => (
-          <div className="users-table-row" key={item.id}><div className="member-name"><b style={{ background: '#75a7ff' }}>{item.name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{item.name}</strong></div><span>{item.email}</span><label className="user-role-control"><span className="sr-only">Rol de {item.name}</span><select aria-label={`Cambiar rol de ${item.name}`} value={item.role} disabled={savingRoleUserId === item.id} onChange={(event) => changeUserRole(item, event.target.value)}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select>{savingRoleUserId === item.id && <small>Guardando…</small>}</label><span className={item.isApproved ? 'roster-status' : 'account-pending'}><i /> {item.isApproved ? 'Activo' : 'Pendiente'}</span><div className="user-actions">{item.role !== 'admin' && <button className={item.isApproved ? 'user-approval-button suspend' : 'user-approval-button'} onClick={() => toggleUserApproval(item)}>{item.isApproved ? 'Suspender' : 'Aprobar'}</button>}<button className="icon-danger-button" aria-label={`Borrar usuario ${item.name}`} title="Borrar usuario" onClick={() => deleteUser(item)}><Trash2 size={15} /></button></div></div>
+        <div className="users-table-row" key={item.id}><div className="member-name"><b style={{ background: '#75a7ff' }}>{item.name?.split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase()}</b><strong>{item.name}</strong></div><span>{item.email}</span><label className="user-role-control"><span className="sr-only">Rol de {item.name}</span><select aria-label={`Cambiar rol de ${item.name}`} value={item.role} disabled={savingRoleUserId === item.id} onChange={(event) => changeUserRole(item, event.target.value)}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select>{item.role === 'capitan' && <select aria-label={`Roster de ${item.name}`} value={item.teamCategory || ''} disabled={savingRoleUserId === item.id} onChange={(event) => changeCaptainTeam(item, event.target.value)}><option value="" disabled>Asignar roster…</option>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select>}{savingRoleUserId === item.id && <small>Guardando…</small>}</label><span className={item.isApproved ? 'roster-status' : 'account-pending'}><i /> {item.isApproved ? 'Activo' : 'Pendiente'}</span><div className="user-actions">{item.role !== 'admin' && <button className={item.isApproved ? 'user-approval-button suspend' : 'user-approval-button'} onClick={() => toggleUserApproval(item)}>{item.isApproved ? 'Suspender' : 'Aprobar'}</button>}<button className="icon-danger-button" aria-label={`Borrar usuario ${item.name}`} title="Borrar usuario" onClick={() => deleteUser(item)}><Trash2 size={15} /></button></div></div>
         ))}
       </article>
 
@@ -2604,7 +2620,8 @@ function SettingsView({ currentUser }) {
             <label><span>Nombre</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label><span>Correo electrónico</span><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
             <label><span>Contraseña temporal (mínimo 12 caracteres)</span><input type="password" minLength="12" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
-            <label><span>Rol</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select></label>
+            <label><span>Rol</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, teamCategory: event.target.value === 'capitan' ? form.teamCategory : '' })}><option value="admin">Administrador</option><option value="capitan">Capitán</option><option value="tesorero">Tesorero</option><option value="lector">Lector</option></select></label>
+            {form.role === 'capitan' && <label><span>Roster asignado</span><select required value={form.teamCategory} onChange={(event) => setForm({ ...form, teamCategory: event.target.value })}><option value="">Seleccionar roster</option>{Object.keys(categoryRosters).map((category) => <option key={category}>{category}</option>)}</select></label>}
             <label className="full-form-field"><span>ID de integrante (opcional)</span><input type="number" min="1" value={form.memberId} onChange={(event) => setForm({ ...form, memberId: event.target.value })} /></label>
             <div className="form-actions"><button type="button" className="outline-button" onClick={() => setShowForm(false)}>Cancelar</button><button type="submit" className="primary-button">Crear usuario</button></div>
           </form>

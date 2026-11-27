@@ -20,6 +20,7 @@ const registerSchema = z.object({
   password: z.string().min(12).max(72),
   role: z.enum(['admin', 'capitan', 'tesorero', 'lector']).default('lector'),
   memberId: z.coerce.number().int().positive().nullable().optional(),
+  teamCategory: z.enum(['Open 1', 'Open 2', 'Master', 'Femenino', 'Mixta', 'Rookie']).nullable().optional(),
 });
 
 const resetRequestSchema = z.object({ email: z.string().trim().toLowerCase().email().max(160) });
@@ -128,7 +129,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Credenciales incorrectas' });
     }
     if (!user.isApproved) return res.status(403).json({ error: 'Tu registro fue recibido y está pendiente de aprobación por el administrador.' });
-    const payload = { id: user.id, name: user.name, role: user.role, memberId: user.memberId };
+    const payload = { id: user.id, name: user.name, role: user.role, memberId: user.memberId, teamCategory: user.teamCategory };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
     res.json({ token, user: payload });
   } catch (e) { next(e); }
@@ -154,16 +155,16 @@ router.post('/register', authenticate, allow(), async (req, res, next) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0].message });
     }
-    const { name, email, password, role, memberId } = parsed.data;
+    const { name, email, password, role, memberId, teamCategory } = parsed.data;
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email, passwordHash, role, memberId });
-    res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role });
+    const user = await User.create({ name, email, passwordHash, role, memberId, teamCategory: role === 'capitan' ? teamCategory || null : null });
+    res.status(201).json({ id: user.id, name: user.name, email: user.email, role: user.role, teamCategory: user.teamCategory });
   } catch (e) { next(e); }
 });
 
 router.get('/users', authenticate, allow(), async (req, res, next) => {
   try {
-    const users = await User.findAll({ attributes: ['id', 'name', 'email', 'role', 'isApproved'], order: [['isApproved', 'ASC'], ['id', 'ASC']] });
+    const users = await User.findAll({ attributes: ['id', 'name', 'email', 'role', 'teamCategory', 'isApproved'], order: [['isApproved', 'ASC'], ['id', 'ASC']] });
     res.json(users);
   } catch (e) { next(e); }
 });
@@ -180,8 +181,26 @@ router.put('/users/:id/role', authenticate, allow(), async (req, res, next) => {
       const adminCount = await User.count({ where: { role: 'admin' } });
       if (adminCount <= 1) return res.status(400).json({ error: 'No se puede cambiar el rol del último administrador.' });
     }
-    await user.update({ role });
-    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, isApproved: user.isApproved });
+    const teamCategory = role === 'capitan' ? (req.body?.teamCategory || user.teamCategory || null) : null;
+    if (teamCategory && !['Open 1', 'Open 2', 'Master', 'Femenino', 'Mixta', 'Rookie'].includes(teamCategory)) {
+      return res.status(400).json({ error: 'Elige un roster válido para el capitán.' });
+    }
+    await user.update({ role, teamCategory });
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, teamCategory: user.teamCategory, isApproved: user.isApproved });
+  } catch (error) { next(error); }
+});
+
+router.put('/users/:id/team', authenticate, allow(), async (req, res, next) => {
+  try {
+    const { teamCategory } = req.body || {};
+    if (!['Open 1', 'Open 2', 'Master', 'Femenino', 'Mixta', 'Rookie'].includes(teamCategory)) {
+      return res.status(400).json({ error: 'Elige un roster válido.' });
+    }
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    if (user.role !== 'capitan') return res.status(400).json({ error: 'Asigna un roster solo a usuarios con rol de capitán.' });
+    await user.update({ teamCategory });
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, teamCategory: user.teamCategory, isApproved: user.isApproved });
   } catch (error) { next(error); }
 });
 
@@ -192,7 +211,7 @@ router.put('/users/:id/approval', authenticate, allow(), async (req, res, next) 
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
     if (user.role === 'admin' && !req.body.isApproved) return res.status(400).json({ error: 'No se puede suspender a un administrador desde esta acción.' });
     await user.update({ isApproved: req.body.isApproved });
-    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, isApproved: user.isApproved });
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, teamCategory: user.teamCategory, isApproved: user.isApproved });
   } catch (error) { next(error); }
 });
 

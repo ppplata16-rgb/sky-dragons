@@ -14,11 +14,16 @@ function crud(Model, opts = {}) {
     (k) => !['id', 'createdAt', 'updatedAt', ...excluded].includes(k)
   );
   const attributes = excluded.length ? { exclude: excluded } : undefined;
+  const getScope = (req) => opts.scope ? opts.scope(req) : null;
+  const isInScope = (row, scope) => !scope || Object.entries(scope).every(([key, value]) => String(row[key]) === String(value));
 
   router.get('/', ...readGuard, async (req, res, next) => {
     try {
       const where = {};
       for (const k of fields) if (req.query[k] !== undefined) where[k] = req.query[k];
+      const scope = getScope(req);
+      if (scope === false) return res.status(403).json({ error: 'El administrador debe asignarte un roster antes de administrar integrantes.' });
+      if (scope) Object.assign(where, scope);
 
       const limitRaw = Number.parseInt(req.query.limit, 10);
       const offsetRaw = Number.parseInt(req.query.offset, 10);
@@ -34,30 +39,44 @@ function crud(Model, opts = {}) {
 
   router.get('/:id', ...readGuard, async (req, res, next) => {
     try {
+      const scope = getScope(req);
+      if (scope === false) return res.status(403).json({ error: 'El administrador debe asignarte un roster antes de administrar integrantes.' });
       const row = await Model.findByPk(req.params.id, { include: opts.include, attributes });
       if (!row) return res.status(404).json({ error: 'No encontrado' });
+      if (!isInScope(row, scope)) return res.status(403).json({ error: 'Este integrante no pertenece a tu roster.' });
       res.json(row);
     } catch (e) { next(e); }
   });
 
   router.post('/', writeGuard, async (req, res, next) => {
-    try { res.status(201).json(await Model.create(req.body, { fields })); }
+    try {
+      const scope = getScope(req);
+      if (scope === false) return res.status(403).json({ error: 'El administrador debe asignarte un roster antes de administrar integrantes.' });
+      const body = scope ? { ...req.body, ...scope } : req.body;
+      res.status(201).json(await Model.create(body, { fields }));
+    }
     catch (e) { next(e); }
   });
 
   router.put('/:id', writeGuard, async (req, res, next) => {
     try {
+      const scope = getScope(req);
+      if (scope === false) return res.status(403).json({ error: 'El administrador debe asignarte un roster antes de administrar integrantes.' });
       const row = await Model.findByPk(req.params.id, { attributes });
       if (!row) return res.status(404).json({ error: 'No encontrado' });
-      await row.update(req.body, { fields });
+      if (!isInScope(row, scope)) return res.status(403).json({ error: 'Este integrante no pertenece a tu roster.' });
+      await row.update(scope ? { ...req.body, ...scope } : req.body, { fields });
       res.json(row);
     } catch (e) { next(e); }
   });
 
   router.delete('/:id', writeGuard, async (req, res, next) => {
     try {
+      const scope = getScope(req);
+      if (scope === false) return res.status(403).json({ error: 'El administrador debe asignarte un roster antes de administrar integrantes.' });
       const row = await Model.findByPk(req.params.id);
       if (!row) return res.status(404).json({ error: 'No encontrado' });
+      if (!isInScope(row, scope)) return res.status(403).json({ error: 'Este integrante no pertenece a tu roster.' });
       await row.destroy();
       res.status(204).end();
     } catch (e) { next(e); }
