@@ -32,6 +32,10 @@ const nav = [
 ]
 
 const categoryRosters = {
+  Open: [],
+  Drakar: [],
+  Fem: [],
+  'Master mixto': [],
   'Open 1': [],
   'Open 2': [],
   Master: [],
@@ -43,6 +47,10 @@ const categoryRosters = {
 const pastCompetitions = []
 
 const medalsByCategory = {
+  Open: { gold: 0, silver: 0, bronze: 0 },
+  Drakar: { gold: 0, silver: 0, bronze: 0 },
+  Fem: { gold: 0, silver: 0, bronze: 0 },
+  'Master mixto': { gold: 0, silver: 0, bronze: 0 },
   'Open 1': { gold: 0, silver: 0, bronze: 0 },
   'Open 2': { gold: 0, silver: 0, bronze: 0 },
   Master: { gold: 0, silver: 0, bronze: 0 },
